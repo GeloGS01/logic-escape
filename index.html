@@ -458,9 +458,7 @@ function finish() {
   var secs = Math.round((S.finish - S.start) / 1000);
   $("winWho").textContent = S.nick;
   $("winTime").textContent = Math.floor(secs / 60) + ":" + ("0" + secs % 60).slice(-2);
-  var mine = ROOMS.map(function (r, i) { return r.lock ? r.title.split(" · ")[0] + ": " + (S.found[i] || []).join("  /  ") : null; })
-    .filter(Boolean).join("\n");
-  $("winStamp").textContent = "Your secret codes (be ready to explain one!)\n" + mine + "\n\nFinished " +
+  $("winStamp").textContent = "Finished " +
     new Date(S.finish).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
