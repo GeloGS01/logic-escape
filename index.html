@@ -67,7 +67,7 @@
 
 <main>
   <section id="startView" class="start">
-    <p style="font-size:22px">Escape 6 rooms. In each room, click the switches until the circuit opens the way.<br>
+    <p style="font-size:22px">Escape 10 rooms. In each room, click the switches until the circuit opens the way.<br>
       Wires glow <b style="color:var(--green-dark)">green</b> when they carry a 1.</p>
     <p><input id="nick" maxlength="20" placeholder="Your nickname" autocomplete="off"></p>
     <p><button id="startBtn" class="btn amber">Start</button></p>
@@ -91,8 +91,8 @@
     <h2>ESCAPED!</h2>
     <div class="who" id="winWho"></div>
     <div class="time" id="winTime"></div>
-    <p style="font-size:20px">All 6 rooms solved. Raise your hand and show your teacher this screen.</p>
-    <p id="winStamp" style="color:var(--muted)"></p>
+    <p style="font-size:20px">All 10 rooms solved. Raise your hand and show your teacher this screen.</p>
+    <p id="winStamp" style="white-space:pre-line;font-size:20px;line-height:1.7"></p>
   </section>
 
   <footer>Your progress is saved on this computer. <a href="#" id="resetLink">Start over</a></footer>
@@ -109,45 +109,142 @@ var ROOMS = [
     gates: [{ id: "g1", type: "AND", ins: ["A", "B"], x: 270, y: 45 },
             { id: "g2", type: "AND", ins: ["g1", "C"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Open", target: 1, need: 1 },
-  { title: "Room 2 · The Locked Door", story: "This lock opens for only one secret code. The wires are hidden, so you have to READ the circuit. Remember: NOT flips a switch.",
-    goal: "Set the switches to the secret code, then press Try this code. You have 3 tries.", inputs: [["A", 40], ["B", 110], ["C", 205]],
-    gates: [{ id: "nA", type: "NOT", ins: ["A"], x: 140, y: 20 },
+  { title: "Room 2 · The Back Door", story: "This lock opens for only one secret code. NOT gates flip a switch: 1 becomes 0, 0 becomes 1.",
+    goal: "Find the secret code that makes the door OPEN (output = 1).", inputs: [["A", 40], ["B", 110], ["C", 205]],
+    gates: [{ id: "nB", type: "NOT", ins: ["B"], x: 140, y: 90 },
             { id: "nC", type: "NOT", ins: ["C"], x: 140, y: 185 },
-            { id: "g1", type: "AND", ins: ["nA", "B"], x: 270, y: 45 },
+            { id: "g1", type: "AND", ins: ["A", "nB"], x: 270, y: 45 },
             { id: "g2", type: "AND", ins: ["g1", "nC"], x: 440, y: 60, mid: [null, 410] }],
-    out: "g2", label: "Open", target: 1, need: 1, hidden: true, tries: 3 },
+    out: "g2", label: "Open", target: 1, need: 1, lock: "and3" },
   { title: "Room 3 · The Fire Alarm", story: "The alarm rings if there is smoke (S) OR heat (H) OR someone presses the button (B).",
     goal: "Find every way to make the alarm RING (output = 1). There are 7!", inputs: [["S", 40], ["H", 110], ["B", 205]],
     gates: [{ id: "g1", type: "OR", ins: ["S", "H"], x: 270, y: 45 },
             { id: "g2", type: "OR", ins: ["g1", "B"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Alarm", target: 1, need: 7 },
-  { title: "Room 4 · The School Bus", story: "The bus leaves when the driver is ready (D) AND (all students are on (S) OR the teacher says go (T)).",
-    goal: "Step 1: click each ? gate to pick the right gate.  Step 2: find all 3 ways to make the bus GO (output = 1).",
+  { title: "Room 4 · The Museum Alarm", story: "The museum alarm rings when the door (D) OR the window (W) is open, AND the guard (G) is NOT there.",
+    goal: "This time, keep it QUIET: find all 5 ways the alarm stays SILENT (output = 0).", inputs: [["D", 40], ["W", 110], ["G", 205]],
+    gates: [{ id: "nG", type: "NOT", ins: ["G"], x: 140, y: 185 },
+            { id: "g1", type: "OR", ins: ["D", "W"], x: 270, y: 45 },
+            { id: "g2", type: "AND", ins: ["g1", "nG"], x: 440, y: 60, mid: [null, 410] }],
+    out: "g2", label: "Alarm", target: 0, need: 5 },
+  { title: "Room 5 · The Locked Door", story: "This lock opens for only one secret code. The wires are hidden, so you have to READ the circuit. Remember: NOT flips a switch.",
+    goal: "Set the switches to the secret code, then press Try this code. You have 3 tries.", inputs: [["A", 40], ["B", 110], ["C", 205]],
+    gates: [{ id: "nA", type: "NOT", ins: ["A"], x: 140, y: 20 },
+            { id: "nC", type: "NOT", ins: ["C"], x: 140, y: 185 },
+            { id: "g1", type: "AND", ins: ["nA", "B"], x: 270, y: 45 },
+            { id: "g2", type: "AND", ins: ["g1", "nC"], x: 440, y: 60, mid: [null, 410] }],
+    out: "g2", label: "Open", target: 1, need: 1, hidden: true, tries: 3, lock: "and3" },
+  { title: "Room 6 · The School Bus", story: "The bus leaves when the driver is ready (D) AND (all students are on (S) OR the teacher says go (T)).",
+    goal: "Step 1: click each ? gate to pick the right gate.  Step 2: find all {n} ways to make the bus GO (output = 1).",
+    variants: [{ story: "The bus leaves when the driver is ready (D) AND (all students are on (S) OR the teacher says go (T)).", answers: { g1: "OR", g2: "AND" } },
+               { story: "The bus leaves when the driver presses the override button (D), OR when all students are on (S) AND the teacher says go (T).", answers: { g1: "AND", g2: "OR" } }],
     inputs: [["D", 75], ["S", 150], ["T", 220]],
     gates: [{ id: "g1", type: null, pick: true, answer: "OR", ins: ["S", "T"], x: 270, y: 160 },
             { id: "g2", type: null, pick: true, answer: "AND", ins: ["D", "g1"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Go", target: 1, need: 3 },
-  { title: "Room 5 · The Stair Light", story: "The stair light is ON when exactly ONE of the switches (upstairs U, downstairs D) is up, AND the power (P) is on.",
-    goal: "Step 1: click each ? gate to pick the right gate (hint: “exactly one”).  Step 2: find both ways to turn the light ON (output = 1).",
+  { title: "Room 7 · The Stair Light", story: "The stair light is ON when exactly ONE of the switches (upstairs U, downstairs D) is up, AND the power (P) is on.",
+    goal: "Step 1: click each ? gate to pick the right gate (hint: “exactly one”).  Step 2: find all {n} ways to turn the light ON (output = 1).",
+    variants: [{ story: "The stair light is ON when exactly ONE of the switches (upstairs U, downstairs D) is up, AND the power (P) is on.", answers: { g1: "XOR", g2: "AND" } },
+               { story: "The stair light is ON when exactly ONE of the switches (upstairs U, downstairs D) is up, OR when the night-light button (P) is pressed.", answers: { g1: "XOR", g2: "OR" } }],
     inputs: [["U", 40], ["D", 110], ["P", 205]],
     gates: [{ id: "g1", type: null, pick: true, answer: "XOR", ins: ["U", "D"], x: 270, y: 45 },
             { id: "g2", type: null, pick: true, answer: "AND", ins: ["g1", "P"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Light", target: 1, need: 2 },
-  { title: "Room 6 · The Smart Door (boss room)", story: "The door opens when it is daytime (D) AND the door is NOT locked (L), OR when the owner taps a card (K).",
-    goal: "Step 1: click each ? gate to pick the right gate.  Step 2: find all 5 ways to OPEN the door (output = 1).",
+  { title: "Room 8 · The Quiz Buzzer", story: "The buzzer sounds when exactly ONE of the two players (A, B) presses their button, OR the host (H) presses theirs.",
+    goal: "Step 1: pick the right gates.  Step 2: find all {n} ways to make the buzzer SOUND (output = 1).",
+    variants: [{ story: "The buzzer sounds when exactly ONE of the two players (A, B) presses their button, OR the host (H) presses theirs.", answers: { g1: "XOR", g2: "OR" } },
+               { story: "The buzzer sounds when exactly ONE of the two players (A, B) presses their button, AND the host (H) has started the round.", answers: { g1: "XOR", g2: "AND" } }],
+    inputs: [["A", 40], ["B", 110], ["H", 205]],
+    gates: [{ id: "g1", type: null, pick: true, answer: "XOR", ins: ["A", "B"], x: 270, y: 45 },
+            { id: "g2", type: null, pick: true, answer: "OR", ins: ["g1", "H"], x: 440, y: 60, mid: [null, 410] }],
+    out: "g2", label: "Buzz", target: 1, need: 6 },
+  { title: "Room 9 · The Twin Locks", story: "This door has TWO secret codes that open it. The wires are hidden again, and this time there is an XOR gate.",
+    goal: "Read the circuit. Find BOTH codes with Try this code. 3 wrong tries, then you wait.", inputs: [["A", 40], ["B", 110], ["C", 205]],
+    gates: [{ id: "nC", type: "NOT", ins: ["C"], x: 140, y: 185 },
+            { id: "g1", type: "XOR", ins: ["A", "B"], x: 270, y: 45 },
+            { id: "g2", type: "AND", ins: ["g1", "nC"], x: 440, y: 60, mid: [null, 410] }],
+    out: "g2", label: "Open", target: 1, need: 2, hidden: true, tries: 3, lock: "xor" },
+  { title: "Room 10 · The Smart Door (boss room)", story: "The door opens when it is daytime (D) AND the door is NOT locked (L), OR when the owner taps a card (K).",
+    goal: "Step 1: click each ? gate to pick the right gate.  Step 2: find all {n} ways to OPEN the door (output = 1).",
+    variants: [{ story: "The door opens when it is daytime (D) AND the door is NOT locked (L), OR when the owner taps a card (K).", answers: { g1: "AND", g2: "OR" } },
+               { story: "The door opens when the owner taps a card (K) AND (it is daytime (D) OR the door is NOT locked (L)).", answers: { g1: "OR", g2: "AND" } }],
     inputs: [["D", 40], ["L", 110], ["K", 205]],
     gates: [{ id: "nL", type: "NOT", ins: ["L"], x: 140, y: 90 },
             { id: "g1", type: null, pick: true, answer: "AND", ins: ["D", "nL"], x: 270, y: 45 },
             { id: "g2", type: null, pick: true, answer: "OR", ins: ["g1", "K"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Open", target: 1, need: 5 }
 ];
+var BASE = JSON.parse(JSON.stringify(ROOMS));
 var CYCLE = ["AND", "OR", "XOR"];
-var KEY = "logic-escape-v1";
+
+// ---------- per-student versions (so copying a seatmate does not work) ----------
+function rng(seed) {
+  return function () {
+    seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function and3Gates(code) {
+  var L = ["A", "B", "C"], Y = [20, 90, 185], g = [], src = [];
+  code.forEach(function (b, i) {
+    if (b) src.push(L[i]);
+    else { g.push({ id: "n" + L[i], type: "NOT", ins: [L[i]], x: 140, y: Y[i] }); src.push("n" + L[i]); }
+  });
+  g.push({ id: "g1", type: "AND", ins: [src[0], src[1]], x: 270, y: 45 });
+  g.push({ id: "g2", type: "AND", ins: ["g1", src[2]], x: 440, y: 60, mid: [null, 410] });
+  return g;
+}
+function xorGates(notA, notC) {
+  var g = [];
+  if (notA) g.push({ id: "nA", type: "NOT", ins: ["A"], x: 140, y: 20 });
+  if (notC) g.push({ id: "nC", type: "NOT", ins: ["C"], x: 140, y: 185 });
+  g.push({ id: "g1", type: "XOR", ins: [notA ? "nA" : "A", "B"], x: 270, y: 45 });
+  g.push({ id: "g2", type: "AND", ins: ["g1", notC ? "nC" : "C"], x: 440, y: 60, mid: [null, 410] });
+  return g;
+}
+function resolveRooms(seed) {
+  ROOMS = JSON.parse(JSON.stringify(BASE));
+  ROOMS.forEach(function (r, i) {
+    var rand = rng(seed + i * 7919);
+    if (r.variants) {
+      var v = r.variants[Math.floor(rand() * r.variants.length)];
+      r.story = v.story;
+      r.gates.forEach(function (g) { if (v.answers[g.id]) g.answer = v.answers[g.id]; });
+    }
+    if (r.lock === "and3") {
+      var code;
+      do { code = [rand() < 0.5 ? 0 : 1, rand() < 0.5 ? 0 : 1, rand() < 0.5 ? 0 : 1]; } while (code.join("") === "111");
+      r.gates = and3Gates(code);
+    }
+    if (r.lock === "xor") r.gates = xorGates(rand() < 0.5, rand() < 0.5);
+    var a = answerTypes(r);
+    r.need = allRows().filter(function (b) { return evalRoom(r, b, a)[r.out] === r.target; }).length;
+    r.goal = r.goal.replace("{n}", r.need);
+  });
+}
+function newSeed() { return Math.floor(Math.random() * 1e9) + 1; }
+var KEY = "logic-escape-v2";
 var S = load();
-var room, bits, picks, triesLeft = 0, lockedUntil = 0, $ = function (id) { return document.getElementById(id); };
+if (S.nick && !S.seed) {
+  S.seed = newSeed();
+  for (var k in S.found) if (S.done.indexOf(+k) < 0) delete S.found[k];
+  save();
+}
+resolveRooms(S.seed || 1);
+var room, bits, picks, touched = false, triesLeft = 0, lockedUntil = 0, $ = function (id) { return document.getElementById(id); };
 
 function load() {
   try { var s = JSON.parse(localStorage.getItem(KEY)); if (s && s.nick) return s; } catch (e) {}
+  try {
+    var old = JSON.parse(localStorage.getItem("logic-escape-v1"));
+    if (old && old.nick) {
+      var map = [0, 4, 2, 5, 6, 9], found = {};
+      for (var k in old.found) found[map[k]] = old.found[k];
+      return { nick: old.nick, start: old.start, done: old.done.map(function (i) { return map[i]; }), found: found, finish: 0 };
+    }
+  } catch (e) {}
   return { nick: "", start: 0, done: [], found: {}, finish: 0 };
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
@@ -302,7 +399,7 @@ function renderFound() {
 }
 function setStatus(text, cls) { var s = $("status"); s.textContent = text; s.className = "status " + cls; }
 function enterRoom(i) {
-  room = i; bits = [0, 0, 0]; triesLeft = ROOMS[i].tries || 0;
+  room = i; bits = [0, 0, 0]; touched = false; triesLeft = ROOMS[i].tries || 0;
   var r = ROOMS[i];
   picks = {};
   if (S.done.indexOf(i) >= 0) r.gates.forEach(function (g) { if (g.pick) picks[g.id] = g.answer; });
@@ -329,7 +426,7 @@ function update() {
     if (!circuitMatches(r, picks)) { setStatus("Not yet. Read the story again: which words join the switches? Change a gate.", "bad"); return; }
   }
   var out = evalRoom(r, bits, typesOf(r, picks))[r.out], f = S.found[room] || (S.found[room] = []);
-  if (out === r.target) {
+  if (out === r.target && touched) {
     var code = codeOf(bits);
     if (f.indexOf(code) < 0) { f.push(code); save(); }
     renderFound();
@@ -350,14 +447,17 @@ function finish() {
   var secs = Math.round((S.finish - S.start) / 1000);
   $("winWho").textContent = S.nick;
   $("winTime").textContent = Math.floor(secs / 60) + ":" + ("0" + secs % 60).slice(-2);
-  $("winStamp").textContent = "Finished " + new Date(S.finish).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  var mine = ROOMS.map(function (r, i) { return r.lock ? r.title.split(" · ")[0] + ": " + (S.found[i] || []).join("  /  ") : null; })
+    .filter(Boolean).join("\n");
+  $("winStamp").textContent = "Your secret codes (be ready to explain one!)\n" + mine + "\n\nFinished " +
+    new Date(S.finish).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 // ---------- events ----------
 $("circuit").addEventListener("click", function (e) {
   var sw = e.target.closest("[data-sw]"), gp = e.target.closest("[data-gate]");
   if (S.done.indexOf(room) >= 0 && gp) return;
-  if (sw) { var i = +sw.getAttribute("data-sw"); bits[i] = 1 - bits[i]; update(); }
+  if (sw) { var i = +sw.getAttribute("data-sw"); bits[i] = 1 - bits[i]; touched = true; update(); }
   else if (gp) {
     var id = gp.getAttribute("data-gate"), cur = picks[id];
     picks[id] = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length]; update();
@@ -371,19 +471,26 @@ function solve(code) {
   if (f.indexOf(code) < 0) f.push(code);
   S.done.push(room); save();
   renderTabs(); update();
-  setStatus("It opens! Code " + code + ". Room solved! ✓", "good");
+  setStatus(ROOMS[room].need > 1 ? "You found all " + ROOMS[room].need + " codes! Room solved! ✓" : "It opens! Code " + code + ". Room solved! ✓", "good");
 }
 $("tryBtn").onclick = function () {
-  var r = ROOMS[room];
+  var r = ROOMS[room], code = codeOf(bits);
   if (Date.now() < lockedUntil) return;
-  if (evalRoom(r, bits, typesOf(r, picks))[r.out] === r.target) { solve(codeOf(bits)); return; }
+  if (evalRoom(r, bits, typesOf(r, picks))[r.out] === r.target) {
+    var f = S.found[room] || (S.found[room] = []);
+    if (f.indexOf(code) >= 0) { setStatus(code + " works, but you already found it. Find the other code!", "info"); return; }
+    if (f.length + 1 >= r.need) { solve(code); return; }
+    f.push(code); save(); renderFound();
+    setStatus("It opens with " + code + "! " + (r.need - f.length) + " more code to find.", "good");
+    return;
+  }
   triesLeft--;
   if (triesLeft > 0) { setStatus("Locked! " + codeOf(bits) + " is wrong. Tries left: " + triesLeft, "bad"); return; }
   lockedUntil = Date.now() + 15000;
   $("tryBtn").disabled = true;
   var tick = setInterval(function () {
     var left = Math.ceil((lockedUntil - Date.now()) / 1000);
-    if (left > 0) { setStatus("Out of tries! Wait " + left + "s. Hint: a switch going into NOT must be 0.", "bad"); return; }
+    if (left > 0) { setStatus("Out of tries! Wait " + left + "s. Hint: trace each wire from the switch. NOT flips it.", "bad"); return; }
     clearInterval(tick); $("tryBtn").disabled = false; triesLeft = r.tries; update();
   }, 250);
 };
@@ -391,7 +498,8 @@ $("nextBtn").onclick = function () { room === ROOMS.length - 1 ? finish() : ente
 $("startBtn").onclick = function () {
   var n = $("nick").value.trim();
   if (!n) { $("nick").focus(); return; }
-  S = { nick: n, start: Date.now(), done: [], found: {}, finish: 0 }; save();
+  S = { nick: n, start: Date.now(), done: [], found: {}, finish: 0, seed: newSeed() }; save();
+  resolveRooms(S.seed);
   showGame();
 };
 $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
