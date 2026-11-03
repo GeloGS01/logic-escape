@@ -67,7 +67,7 @@
 
 <main>
   <section id="startView" class="start">
-    <p style="font-size:22px">Escape 5 rooms. In each room, click the switches until the circuit opens the way.<br>
+    <p style="font-size:22px">Escape 6 rooms. In each room, click the switches until the circuit opens the way.<br>
       Wires glow <b style="color:var(--green-dark)">green</b> when they carry a 1.</p>
     <p><input id="nick" maxlength="20" placeholder="Your nickname" autocomplete="off"></p>
     <p><button id="startBtn" class="btn amber">Start</button></p>
@@ -91,7 +91,7 @@
     <h2>ESCAPED!</h2>
     <div class="who" id="winWho"></div>
     <div class="time" id="winTime"></div>
-    <p style="font-size:20px">All 5 rooms solved. Raise your hand and show your teacher this screen.</p>
+    <p style="font-size:20px">All 6 rooms solved. Raise your hand and show your teacher this screen.</p>
     <p id="winStamp" style="color:var(--muted)"></p>
   </section>
 
@@ -127,7 +127,13 @@ var ROOMS = [
     gates: [{ id: "g1", type: null, pick: true, answer: "OR", ins: ["S", "T"], x: 270, y: 160 },
             { id: "g2", type: null, pick: true, answer: "AND", ins: ["D", "g1"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Go", target: 1, need: 3 },
-  { title: "Room 5 · The Smart Door (boss room)", story: "The door opens when it is daytime (D) AND the door is NOT locked (L), OR when the owner taps a card (K).",
+  { title: "Room 5 · The Stair Light", story: "The stair light is ON when exactly ONE of the switches (upstairs U, downstairs D) is up, AND the power (P) is on.",
+    goal: "Step 1: click each ? gate to pick the right gate (hint: “exactly one”).  Step 2: find both ways to turn the light ON (output = 1).",
+    inputs: [["U", 40], ["D", 110], ["P", 205]],
+    gates: [{ id: "g1", type: null, pick: true, answer: "XOR", ins: ["U", "D"], x: 270, y: 45 },
+            { id: "g2", type: null, pick: true, answer: "AND", ins: ["g1", "P"], x: 440, y: 60, mid: [null, 410] }],
+    out: "g2", label: "Light", target: 1, need: 2 },
+  { title: "Room 6 · The Smart Door (boss room)", story: "The door opens when it is daytime (D) AND the door is NOT locked (L), OR when the owner taps a card (K).",
     goal: "Step 1: click each ? gate to pick the right gate.  Step 2: find all 5 ways to OPEN the door (output = 1).",
     inputs: [["D", 40], ["L", 110], ["K", 205]],
     gates: [{ id: "nL", type: "NOT", ins: ["L"], x: 140, y: 90 },
@@ -225,7 +231,7 @@ function gateShape(g, type, val) {
     el("rect", { x: x, y: y, width: 80, height: 60, rx: 10, fill: fill, stroke: stroke, "stroke-width": sw, "stroke-dasharray": "7 5" }, grp);
   }
   var label = type ? type : "?";
-  var t = el("text", { x: type === "NOT" ? x + 20 : x + 36, y: y + (type === "NOT" ? 24 : 35), "text-anchor": "middle",
+  var t = el("text", { x: type === "NOT" ? x + 20 : type === "XOR" ? x + 44 : type === "OR" ? x + 40 : x + 36, y: y + (type === "NOT" ? 24 : 35), "text-anchor": "middle",
     "font-size": type === "NOT" ? 10 : (type ? 14 : 28), "font-weight": 800, fill: g.pick ? "#B45309" : "#0F172A",
     "font-family": "Arial, sans-serif" }, grp);
   t.textContent = label;
