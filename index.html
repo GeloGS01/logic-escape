@@ -83,7 +83,7 @@
     <div class="board"><svg id="circuit" viewBox="0 0 660 250" role="img" aria-label="Circuit"></svg></div>
     <div class="status info" id="status"></div>
     <div class="found" id="found"></div>
-    <div class="actions"><button id="nextBtn" class="btn amber hidden">Next room →</button></div>
+    <div class="actions"><button id="tryBtn" class="btn hidden">Try this code</button> <button id="nextBtn" class="btn amber hidden">Next room →</button></div>
   </section>
 
   <section id="winView" class="win hidden">
@@ -109,13 +109,13 @@ var ROOMS = [
     gates: [{ id: "g1", type: "AND", ins: ["A", "B"], x: 270, y: 45 },
             { id: "g2", type: "AND", ins: ["g1", "C"], x: 440, y: 60, mid: [null, 410] }],
     out: "g2", label: "Open", target: 1, need: 1 },
-  { title: "Room 2 · The Locked Door", story: "This lock opens for only one secret code. NOT gates flip a switch.",
-    goal: "Find the secret code that makes the door OPEN (output = 1).", inputs: [["A", 40], ["B", 110], ["C", 205]],
-    gates: [{ id: "nB", type: "NOT", ins: ["B"], x: 140, y: 90 },
+  { title: "Room 2 · The Locked Door", story: "This lock opens for only one secret code. The wires are hidden, so you have to READ the circuit. Remember: NOT flips a switch.",
+    goal: "Set the switches to the secret code, then press Try this code. You have 3 tries.", inputs: [["A", 40], ["B", 110], ["C", 205]],
+    gates: [{ id: "nA", type: "NOT", ins: ["A"], x: 140, y: 20 },
             { id: "nC", type: "NOT", ins: ["C"], x: 140, y: 185 },
-            { id: "g1", type: "AND", ins: ["A", "nB"], x: 270, y: 45 },
+            { id: "g1", type: "AND", ins: ["nA", "B"], x: 270, y: 45 },
             { id: "g2", type: "AND", ins: ["g1", "nC"], x: 440, y: 60, mid: [null, 410] }],
-    out: "g2", label: "Open", target: 1, need: 1 },
+    out: "g2", label: "Open", target: 1, need: 1, hidden: true, tries: 3 },
   { title: "Room 3 · The Fire Alarm", story: "The alarm rings if there is smoke (S) OR heat (H) OR someone presses the button (B).",
     goal: "Find every way to make the alarm RING (output = 1). There are 7!", inputs: [["S", 40], ["H", 110], ["B", 205]],
     gates: [{ id: "g1", type: "OR", ins: ["S", "H"], x: 270, y: 45 },
@@ -138,7 +138,7 @@ var ROOMS = [
 var CYCLE = ["AND", "OR", "XOR"];
 var KEY = "logic-escape-v1";
 var S = load();
-var room, bits, picks, $ = function (id) { return document.getElementById(id); };
+var room, bits, picks, triesLeft = 0, lockedUntil = 0, $ = function (id) { return document.getElementById(id); };
 
 function load() {
   try { var s = JSON.parse(localStorage.getItem(KEY)); if (s && s.nick) return s; } catch (e) {}
@@ -237,6 +237,7 @@ function gateShape(g, type, val) {
 }
 function draw() {
   var r = ROOMS[room], svg = $("circuit"), t = typesOf(r, picks), v = evalRoom(r, bits, t);
+  if (r.hidden && S.done.indexOf(room) < 0) r.gates.forEach(function (g) { v[g.id] = undefined; });
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   // wires first so gate shapes sit on top
   r.gates.forEach(function (g) {
@@ -295,7 +296,7 @@ function renderFound() {
 }
 function setStatus(text, cls) { var s = $("status"); s.textContent = text; s.className = "status " + cls; }
 function enterRoom(i) {
-  room = i; bits = [0, 0, 0];
+  room = i; bits = [0, 0, 0]; triesLeft = ROOMS[i].tries || 0;
   var r = ROOMS[i];
   picks = {};
   if (S.done.indexOf(i) >= 0) r.gates.forEach(function (g) { if (g.pick) picks[g.id] = g.answer; });
@@ -309,7 +310,13 @@ function update() {
   draw(); renderFound();
   $("nextBtn").classList.toggle("hidden", !done);
   $("nextBtn").textContent = room === ROOMS.length - 1 ? "Finish →" : "Next room →";
+  $("tryBtn").classList.toggle("hidden", !r.hidden || done);
   if (done) { setStatus("Room solved! ✓", "good"); return; }
+  if (r.hidden) {
+    if (Date.now() < lockedUntil) return;
+    setStatus("Read the circuit, set the switches, then press Try this code. Tries left: " + triesLeft, "info");
+    return;
+  }
   if (needsPicks(r)) {
     var allPicked = r.gates.every(function (g) { return !g.pick || picks[g.id]; });
     if (!allPicked) { setStatus("Click each ? gate to choose AND, OR or XOR.", "info"); return; }
@@ -353,6 +360,27 @@ $("circuit").addEventListener("click", function (e) {
 $("circuit").addEventListener("keydown", function (e) {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
 });
+function solve(code) {
+  var r = ROOMS[room], f = S.found[room] || (S.found[room] = []);
+  if (f.indexOf(code) < 0) f.push(code);
+  S.done.push(room); save();
+  renderTabs(); update();
+  setStatus("It opens! Code " + code + ". Room solved! ✓", "good");
+}
+$("tryBtn").onclick = function () {
+  var r = ROOMS[room];
+  if (Date.now() < lockedUntil) return;
+  if (evalRoom(r, bits, typesOf(r, picks))[r.out] === r.target) { solve(codeOf(bits)); return; }
+  triesLeft--;
+  if (triesLeft > 0) { setStatus("Locked! " + codeOf(bits) + " is wrong. Tries left: " + triesLeft, "bad"); return; }
+  lockedUntil = Date.now() + 15000;
+  $("tryBtn").disabled = true;
+  var tick = setInterval(function () {
+    var left = Math.ceil((lockedUntil - Date.now()) / 1000);
+    if (left > 0) { setStatus("Out of tries! Wait " + left + "s. Hint: a switch going into NOT must be 0.", "bad"); return; }
+    clearInterval(tick); $("tryBtn").disabled = false; triesLeft = r.tries; update();
+  }, 250);
+};
 $("nextBtn").onclick = function () { room === ROOMS.length - 1 ? finish() : enterRoom(room + 1); };
 $("startBtn").onclick = function () {
   var n = $("nick").value.trim();
