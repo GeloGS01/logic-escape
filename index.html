@@ -365,10 +365,12 @@ function draw() {
     name.textContent = inp[0];
   });
   // output lamp
-  el("circle", { cx: 604, cy: op[1], r: 24, fill: ov === 1 ? "#F59E0B" : "#FFFFFF", stroke: ov === 1 ? "#D97706" : "#94A3B8", "stroke-width": 4,
-    filter: "" });
+  // in a "keep it silent" room a 1 is bad news, so the lamp turns red instead of amber
+  var lit = ov === 1, alarm = r.target === 0;
+  el("circle", { cx: 604, cy: op[1], r: 24, fill: lit ? (alarm ? "#DC2626" : "#F59E0B") : "#FFFFFF",
+    stroke: lit ? (alarm ? "#991B1B" : "#D97706") : (alarm && ov === 0 ? "#22C55E" : "#94A3B8"), "stroke-width": 4 });
   var ot = el("text", { x: 604, y: op[1] + 7, "text-anchor": "middle", "font-size": 20, "font-weight": 800,
-    fill: ov === 1 ? "#FFFFFF" : "#64748B", "font-family": "Courier New, monospace" });
+    fill: lit ? "#FFFFFF" : (alarm && ov === 0 ? "#15803D" : "#64748B"), "font-family": "Courier New, monospace" });
   ot.textContent = ov === undefined ? "?" : ov;
   var ol = el("text", { x: 604, y: op[1] + 44, "text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: "#0F172A", "font-family": "Arial" });
   ol.textContent = r.label;
@@ -431,7 +433,11 @@ function update() {
   var out = evalRoom(r, bits, typesOf(r, picks))[r.out], f = S.found[room] || (S.found[room] = []);
   if (out === r.target && touched) {
     var code = codeOf(bits);
-    if (f.indexOf(code) < 0) { f.push(code); save(); }
+    if (f.indexOf(code) >= 0) {
+      setStatus("You already found " + code + ". Find a different way!  " + (r.need - f.length) + " more to find.", "info");
+      return;
+    }
+    f.push(code); save();
     renderFound();
     if (f.length >= r.need) {
       S.done.push(room); save();
@@ -440,6 +446,8 @@ function update() {
       return;
     }
     setStatus("Found " + code + "!  " + (r.need - f.length) + " more to find.", "good");
+  } else if (r.target === 0 && out === 1) {
+    setStatus("The alarm is RINGING! Change a switch to make it silent.", "bad");
   } else {
     setStatus(needsPicks(r) ? "Gates are right! Now flip the switches." : "Flip the switches. Watch the wires light up.", "info");
   }
