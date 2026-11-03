@@ -428,7 +428,13 @@ function update() {
   if (needsPicks(r)) {
     var allPicked = r.gates.every(function (g) { return !g.pick || picks[g.id]; });
     if (!allPicked) { setStatus("Click each ? gate to choose AND, OR or XOR.", "info"); return; }
-    if (!circuitMatches(r, picks)) { setStatus("Not yet. Read the story again: which words join the switches? Change a gate.", "bad"); return; }
+    if (!circuitMatches(r, picks)) {
+      // a targeted hint for the classic mix-up: OR where the story says "exactly one"
+      var orForXor = r.gates.some(function (g) { return g.pick && g.answer === "XOR" && picks[g.id] === "OR"; });
+      setStatus(orForXor ? "Not yet. OR is also 1 when BOTH are up. “Exactly one” needs a different gate."
+        : "Not yet. Read the story again: which words join the switches? Change a gate.", "bad");
+      return;
+    }
   }
   var out = evalRoom(r, bits, typesOf(r, picks))[r.out], f = S.found[room] || (S.found[room] = []);
   if (out === r.target && touched) {
