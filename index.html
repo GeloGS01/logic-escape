@@ -46,7 +46,10 @@
   .btn.amber { background: var(--amber); color: var(--ink); }
   .hidden { display: none !important; }
   .start, .win { text-align: center; padding: 30px 10px; }
-  .start input { font: 700 24px inherit; padding: 10px 14px; border: 3px solid var(--line); border-radius: 10px; width: 260px; max-width: 100%; text-align: center; }
+  .start input { font-family: inherit; font-size: 34px; font-weight: 700; color: var(--ink); padding: 16px 22px; border: 3px solid var(--line); border-radius: 14px; width: 460px; max-width: 100%; text-align: center; }
+  .start input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  .start input::placeholder { color: #94A3B8; font-weight: 600; }
+  .start .btn { font-size: 26px; padding: 14px 40px; }
   .win h2 { font-size: 54px; margin: 10px 0; color: var(--green-dark); }
   .win .who { font-size: 30px; font-weight: 800; }
   .win .time { font: 800 40px "Courier New", monospace; margin: 12px 0; }
