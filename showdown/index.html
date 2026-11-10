@@ -74,8 +74,11 @@
   table.tt tr.pickrow.right td { background: var(--green-soft); color: var(--green-dark); }
   table.tt tr.pickrow.wrong td { background: var(--red-soft); color: var(--red); }
   table.tt tr.pickrow.missed td { background: #FFF; color: var(--red); outline: 3px dashed var(--red); outline-offset: -3px; }
-  .locks { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 10px 0 12px; }
-  .hole { border: 4px dashed var(--c); border-radius: 16px; padding: 10px 18px; text-align: center; min-width: 170px; cursor: pointer; background: var(--white); }
+  .lockwrap { max-width: 600px; margin: 0 auto; }
+  .lockwrap svg { display: block; width: 100%; height: auto; }
+  .locks { display: grid; grid-template-columns: repeat(3, 1fr); margin: -4px 0 12px; }
+  .holecell { display: flex; justify-content: center; }
+  .hole { border: 4px dashed var(--c); border-radius: 16px; padding: 8px 10px; text-align: center; width: 90%; max-width: 170px; cursor: pointer; background: var(--white); }
   .hole .lk { font-size: 34px; }
   .hole .lbl { font-weight: 800; color: var(--c); font-size: 18px; }
   .hole .bit { font: 700 15px "Courier New", monospace; color: var(--muted); }
@@ -316,7 +319,7 @@
     { key: "eqn", name: "Story to Equation", how: "Pick the equation that matches the story.", n: 6, pts: 1, mc: true },
     { key: "trace", name: "Trace It!", how: "Click the Out cells to set each one to 0 or 1, then press Check. 4 points per table.", n: 3, pts: 4 },
     { key: "find", name: "Find Every Way", how: "Click EVERY row that makes Out = 1, then press Check. 4 points per table, minus 1 for each mistake.", n: 2, pts: 4 },
-    { key: "lock", name: "Crack the Lock", how: "The code is hidden in the circuit, and the gates have no labels! Put a key in its lock for 1, leave it out for 0. 3 tries.", n: 3, pts: 4 }
+    { key: "lock", name: "Crack the Lock", how: "The code is hidden in the circuit, and the gates have no labels! Signals flow UP from the locks to the chest. Key in = 1, no key = 0. 3 tries.", n: 3, pts: 4 }
   ];
   var MC_COUNT = ROUNDS.reduce(function (s, r) { return s + (r.mc ? r.n : 0); }, 0);
   var BASE = ROUNDS.reduce(function (s, r) { return s + r.n * r.pts; }, 0);
@@ -349,7 +352,7 @@
     for (var L = 0, guard = 0; L < 3 && guard < 300; guard++) {
       var c = genLock(L === 0), key = c.code.join("");
       if (used[key]) continue;
-      used[key] = 1; Q.lock.push({ code: c.code, circ: c, holes: shuffle([0, 1, 2]), tray: shuffle([0, 1, 2]) }); L++;
+      used[key] = 1; Q.lock.push({ code: c.code, circ: c, holes: pick(LOCK_ORDERS, 1)[0].slice(), tray: shuffle([0, 1, 2]) }); L++;
     }
     return Q;
   }
@@ -525,49 +528,73 @@
     }
     return { n: [false, true, false], g1: "AND", n1: false, g2: "AND", n2: false, code: [1, 0, 1] };
   }
-  function andPath(x, y, w, h) { var r = h / 2; return "M" + x + " " + y + " H" + (x + w - r) + " A" + r + " " + r + " 0 0 1 " + (x + w - r) + " " + (y + h) + " H" + x + " Z"; }
-  function orPath(x, y, w, h) {
-    return "M" + x + " " + y + " Q" + (x + w * .35) + " " + (y + h / 2) + " " + x + " " + (y + h) +
-      " Q" + (x + w * .65) + " " + (y + h) + " " + (x + w) + " " + (y + h / 2) + " Q" + (x + w * .65) + " " + y + " " + x + " " + y + " Z";
+  // left-to-right order of the inputs; A and B always sit side by side so no wires cross
+  var LOCK_ORDERS = [[0, 1, 2], [1, 0, 2], [2, 0, 1], [2, 1, 0]];
+
+  // ----- upright drawing: signals flow from the locks at the bottom up to the chest at the top -----
+  var COLX = [100, 300, 500];
+  var Y = { inC: 455, inWire: 439, notIn: 420, jog1: 352, g1b: 330, g1t: 270, not1: 262, jog2: 200, g2b: 176, g2t: 112, not2: 104, chest: 50 };
+  function andUp(x, yb, L, W) { var r = W / 2; return "M" + (x - r) + " " + yb + " V" + (yb - (L - r)) + " A" + r + " " + r + " 0 0 1 " + (x + r) + " " + (yb - (L - r)) + " V" + yb + " Z"; }
+  function orUp(x, yb, L, W) {
+    var r = W / 2;
+    return "M" + (x - r) + " " + yb + " Q" + x + " " + (yb - L * .35) + " " + (x + r) + " " + yb +
+      " Q" + (x + r) + " " + (yb - L * .65) + " " + x + " " + (yb - L) + " Q" + (x - r) + " " + (yb - L * .65) + " " + (x - r) + " " + yb + " Z";
   }
-  function gateSvg(g, x, y, w, h) { return '<path d="' + (g === "AND" ? andPath(x, y, w, h) : orPath(x, y, w, h)) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/>'; }
-  function notSvg(x, y) {   // triangle from x to x+40, bubble, output at x+52
-    return '<path d="M' + x + " " + (y - 18) + " L" + (x + 40) + " " + y + " L" + x + " " + (y + 18) + ' Z" fill="#fff" stroke="#0F172A" stroke-width="3"/><circle cx="' + (x + 47) + '" cy="' + y + '" r="6" fill="#fff" stroke="#0F172A" stroke-width="3"/>';
+  function gateUp(g, x, yb, L, W) { return '<path d="' + (g === "AND" ? andUp(x, yb, L, W) : orUp(x, yb, L, W)) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/>'; }
+  function notUp(x, yb) {   // base at yb, tip at yb-40, bubble above
+    return '<path d="M' + (x - 18) + " " + yb + " L" + x + " " + (yb - 40) + " L" + (x + 18) + " " + yb + ' Z" fill="#fff" stroke="#0F172A" stroke-width="3"/><circle cx="' + x + '" cy="' + (yb - 47) + '" r="6" fill="#fff" stroke="#0F172A" stroke-width="3"/>';
   }
-  function lockSvg(c) {
-    var ys = [40, 100, 160], g = '<svg viewBox="0 0 640 200" role="img" aria-label="Lock circuit" style="max-width:720px;margin:0 auto">';
-    var G1X = 230, G2X = 400, OUT1 = 302, OUT2 = 482;
-    // wires first; gates are drawn on top (white fill hides the wire ends)
+  function chestSvg(x, open) {
+    var g = "";
+    if (open) {
+      g += '<path d="M' + (x - 42) + " 18 L" + (x - 36) + " -2 L" + (x + 48) + " -10 L" + (x + 42) + ' 18 Z" fill="#B45309" stroke="#451A03" stroke-width="3"/>';
+      g += '<circle cx="' + (x - 14) + '" cy="16" r="8" fill="#FACC15" stroke="#A16207" stroke-width="2"/><circle cx="' + (x + 4) + '" cy="12" r="8" fill="#FACC15" stroke="#A16207" stroke-width="2"/><circle cx="' + (x + 20) + '" cy="17" r="8" fill="#FACC15" stroke="#A16207" stroke-width="2"/>';
+    } else {
+      g += '<rect x="' + (x - 42) + '" y="4" width="84" height="18" rx="8" fill="#B45309" stroke="#451A03" stroke-width="3"/>';
+    }
+    g += '<rect x="' + (x - 42) + '" y="18" width="84" height="32" rx="3" fill="#92400E" stroke="#451A03" stroke-width="3"/>';
+    g += '<rect x="' + (x - 6) + '" y="' + (open ? 18 : 4) + '" width="12" height="' + (open ? 32 : 46) + '" fill="#F59E0B" stroke="#451A03" stroke-width="2"/>';
+    if (!open) g += '<circle cx="' + x + '" cy="30" r="4" fill="#451A03"/><rect x="' + (x - 1.5) + '" y="30" width="3" height="8" fill="#451A03"/>';
+    return g;
+  }
+  function lockSvg(c, order, open) {
+    var xOf = [0, 0, 0]; order.forEach(function (k, col) { xOf[k] = COLX[col]; });
+    var g1x = (xOf[0] + xOf[1]) / 2, g2x = (g1x + xOf[2]) / 2;
+    var W1 = 90, W2 = 110, p1 = 22, p2 = 28;
+    var aLeft = xOf[0] < xOf[1], cRight = xOf[2] > g1x;
+    var pin = [aLeft ? g1x - p1 : g1x + p1, aLeft ? g1x + p1 : g1x - p1, cRight ? g2x + p2 : g2x - p2];
+    var s1pin = cRight ? g2x - p2 : g2x + p2;
+    var g = '<svg viewBox="0 0 600 476" role="img" aria-label="Lock circuit">';
+    var wire = function (pts, col, w) { return '<polyline points="' + pts.map(function (p) { return p.join(","); }).join(" ") + '" fill="none" stroke="' + col + '" stroke-width="' + (w || 5) + '" stroke-linejoin="round"/>'; };
+    // wires first, gates on top (white fill hides the wire ends)
+    [0, 1].forEach(function (i) { g += wire([[xOf[i], Y.inWire], [xOf[i], Y.jog1], [pin[i], Y.jog1], [pin[i], Y.g1b - 14]], KEYS[i].col); });
+    g += wire([[xOf[2], Y.inWire], [xOf[2], Y.jog2], [pin[2], Y.jog2], [pin[2], Y.g2b - 14]], KEYS[2].col);
+    g += wire([[g1x, Y.g1t], [g1x, Y.jog2], [s1pin, Y.jog2], [s1pin, Y.g2b - 14]], "#0F172A", 4);
+    g += wire([[g2x, Y.g2t], [g2x, Y.chest]], "#0F172A", 4);
     KEYS.forEach(function (k, i) {
-      var y = ys[i], end = i < 2 ? G1X + 14 : G2X + 14;
-      g += '<line x1="38" y1="' + y + '" x2="' + end + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
+      if (c.n[i]) g += notUp(xOf[i], Y.notIn);
+      g += '<circle cx="' + xOf[i] + '" cy="' + Y.inC + '" r="16" fill="' + k.col + '"/><text x="' + xOf[i] + '" y="' + (Y.inC + 6) + '" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Arial">' + k.n + "</text>";
     });
-    g += '<line x1="' + OUT1 + '" y1="70" x2="' + (G2X + 14) + '" y2="70" stroke="#0F172A" stroke-width="4"/>';
-    g += '<line x1="' + OUT2 + '" y1="115" x2="586" y2="115" stroke="#0F172A" stroke-width="4"/>';
-    KEYS.forEach(function (k, i) {
-      var y = ys[i];
-      g += '<circle cx="22" cy="' + y + '" r="16" fill="' + k.col + '"/><text x="22" y="' + (y + 6) + '" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Arial">' + k.n + "</text>";
-      if (c.n[i]) g += notSvg(88, y);
-    });
-    g += gateSvg(c.g1, G1X, 22, 72, 96);
-    if (c.n1) g += notSvg(320, 70);
-    g += gateSvg(c.g2, G2X, 52, 82, 126);
-    if (c.n2) g += notSvg(500, 115);
-    g += '<text x="590" y="127" font-size="34">🔒</text>';
+    g += gateUp(c.g1, g1x, Y.g1b, Y.g1b - Y.g1t, W1);
+    if (c.n1) g += notUp(g1x, Y.not1);
+    g += gateUp(c.g2, g2x, Y.g2b, Y.g2b - Y.g2t, W2);
+    if (c.n2) g += notUp(g2x, Y.not2);
+    g += chestSvg(g2x, open);
     return g + "</svg>";
   }
   function renderLock() {
     var Q = S.Q.lock[S.q];
     var circ = Q.circ || { n: Q.code.map(function (v) { return v === 0; }), g1: "AND", n1: false, g2: "AND", n2: false };
-    var code = Q.code, holes = Q.holes || [0, 1, 2], tray = Q.tray || [0, 1, 2];
-    var inLock = [false, false, false], tries = 0, held = null, over = false;
+    var code = Q.code, tray = Q.tray || [0, 1, 2];
+    var order = Q.holes && Math.abs(Q.holes.indexOf(0) - Q.holes.indexOf(1)) === 1 ? Q.holes : [0, 1, 2];
+    var inLock = [false, false, false], tries = 0, held = null, over = false, opened = false;
     function draw() {
-      var html = '<div class="question" style="font-size:24px;margin-bottom:6px">Read the circuit. Which keys open the lock?</div>' + lockSvg(circ);
-      html += '<div class="locks">' + holes.map(function (i) {
+      var html = '<div class="question" style="font-size:24px;margin-bottom:6px">Read the circuit. Which keys open the chest?</div>';
+      html += '<div class="lockwrap">' + lockSvg(circ, order, opened) + '<div class="locks">' + order.map(function (i) {
         var k = KEYS[i];
-        return '<div class="hole' + (inLock[i] ? " filled" : "") + '" data-i="' + i + '" style="--c:' + k.col + '"><div class="lk">' + (inLock[i] ? "🔑" : "🔒") +
-          '</div><div class="lbl">' + k.name + " lock (" + k.n + ')</div><div class="bit">' + (inLock[i] ? "key in = 1" : "empty = 0") + "</div></div>";
-      }).join("") + "</div>";
+        return '<div class="holecell"><div class="hole' + (inLock[i] ? " filled" : "") + '" data-i="' + i + '" style="--c:' + k.col + '"><div class="lk">' + (inLock[i] ? "🔑" : "🔒") +
+          '</div><div class="lbl">' + k.name + " (" + k.n + ')</div><div class="bit">' + (inLock[i] ? "key in = 1" : "empty = 0") + "</div></div></div>";
+      }).join("") + "</div></div>";
       html += '<div class="tray"><span class="trayl">Your keys:</span>' + tray.map(function (i) {
         var k = KEYS[i];
         return inLock[i] ? '<span class="key ghost" style="--c:' + k.col + '">' + k.name + " key</span>"
@@ -635,9 +662,9 @@
       tries++;
       var ok = lockOut(circ, inLock.map(function (x) { return x ? 1 : 0; })) === 1;
       if (ok) {
-        over = true; draw();
+        over = true; opened = true; draw();
         var pts = [4, 3, 2][tries - 1];
-        fb(true, "🔓 Unlocked on try " + tries + "! +" + pts, names());
+        fb(true, "💰 The chest is open! Try " + tries + ": +" + pts, names());
         done(pts);
       } else if (tries >= 3) {
         over = true; inLock = code.map(function (v) { return v === 1; }); draw();
@@ -647,7 +674,7 @@
       } else {
         draw();
         fb(false, "🔒 Still locked! " + (3 - tries) + " tr" + (3 - tries === 1 ? "y" : "ies") + " left.",
-          "Work backwards from the lock: what must the last gate get to output 1? A circle (NOT) flips the signal.");
+          "Work down from the chest: what must the top gate get to output 1? A circle (NOT) flips the signal.");
       }
     }
     draw();
