@@ -761,7 +761,8 @@
       // drop it when posted, or when the board refuses it for good (e.g. a 0 score); keep it if the board isn't ready yet
       if (!(d.ok || (d.error && d.error !== "Unknown board"))) throw 0;
       pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
-      if (S && e.id === S.id && d.ok) { S.posted = true; save(); }
+      if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winSent").textContent = "✔ Posted to the Top 10"; }
+      if (S && e.id === S.id && !d.ok) $("winSent").textContent = "The Top 10 refused this score: “" + d.error + "”. Tell your teacher.";
       flushing = false;
       if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
     }).catch(function () {
@@ -824,6 +825,22 @@
 
 
   flushPending();   // post any score that failed earlier, then show the Top 10
+
+  // teacher check: open the page with ?check to test the Top 10 connection.
+  // It posts a 0 score, which the board always refuses, so nothing is written.
+  if (/[?&]check\b/.test(location.search)) {
+    var out = function (t) { $("startMsg").style.color = "var(--ink)"; $("startMsg").innerHTML = t; };
+    out("Checking the Top 10 connection…");
+    var res = [];
+    fetch(SCORE_URL + "?board=" + BOARD).then(function (r) { return r.text(); })
+      .then(function (t) { res.push("<b>Read:</b> " + esc(t.slice(0, 160))); })
+      .catch(function (e) { res.push("<b>Read failed:</b> " + esc(String(e))); })
+      .then(function () { return fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: "check", cls: "7A", score: 0 }) }); })
+      .then(function (r) { return r.text(); })
+      .then(function (t) { res.push("<b>Post:</b> " + esc(t.slice(0, 160)) + (t.indexOf("Score not accepted") >= 0 ? "  ✔ posting works" : "")); })
+      .catch(function (e) { res.push("<b>Post failed:</b> " + esc(String(e))); })
+      .then(function () { out(res.join("<br>")); });
+  }
 
   // resume after a refresh: an answered question moves on, so it can't be re-tried
   S = load();
