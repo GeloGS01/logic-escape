@@ -40,7 +40,9 @@
   .choices { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .choices button { min-width: 130px; font: inherit; font-size: 24px; font-weight: 800; padding: 14px 22px; border-radius: 14px;
     border: 3px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer; }
-  .choices.wide button { font-family: "Courier New", monospace; font-size: 22px; min-width: 300px; }
+  .choices.wide { display: grid; grid-template-columns: repeat(2, minmax(0, 380px)); justify-content: center; }
+  .choices.wide button { font-family: "Courier New", monospace; font-size: 22px; min-width: 0; width: 100%; }
+  @media (max-width: 700px) { .choices.wide { grid-template-columns: minmax(0, 1fr); } }
   .choices button:hover:not([disabled]) { border-color: var(--amber); background: var(--amber-soft); }
   .choices button.right { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
   .choices button.wrong { background: var(--red-soft); border-color: var(--red); color: var(--red); }
