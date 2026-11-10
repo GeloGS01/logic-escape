@@ -228,16 +228,24 @@
     var nb = 1 - b, r2 = OPS[op](a, nb);
     return { q: a + " " + op + " (NOT " + b + ") = ?", a: String(r2), why: "NOT " + b + " = " + nb + ", then " + a + " " + op + " " + nb + " = " + r2 };
   }
-  function genFinger() {
-    var g = pick(["AND", "OR", "XOR", "NOT"], 1)[0];
-    if (rnd() < .5) {
+  // all 7 distinct fingerprint questions; a game picks 6 of them
+  function FINGERS() {
+    var out = GATES.map(function (g) {
       var col = g === "NOT" ? "10" : PRINT[g];
       return { q: 'Output column <span class="mono">' + col + "</span>" + (g === "NOT" ? " (inputs 0, 1)" : " (inputs 00, 01, 10, 11)") + ". Which gate?",
         a: g, opts: GATES, why: "AND = 0001, OR = 0111, XOR = 0110, NOT = 10" };
-    }
-    if (g === "NOT") g = "AND";
-    return { q: "Which output column belongs to " + g + "? (inputs 00, 01, 10, 11)", a: PRINT[g], opts: shuffle(["0001", "0111", "0110", "1000"]),
-      why: "AND = 0001, OR = 0111, XOR = 0110" };
+    });
+    ["AND", "OR", "XOR"].forEach(function (g) {
+      out.push({ q: "Which output column belongs to " + g + "? (inputs 00, 01, 10, 11)", a: PRINT[g], opts: shuffle(["0001", "0111", "0110", "1000"]),
+        why: "AND = 0001, OR = 0111, XOR = 0110" });
+    });
+    return out;
+  }
+  // call gen() until n different questions are collected
+  function unique(gen, n) {
+    var seen = {}, out = [], guard = 0;
+    while (out.length < n && guard++ < 500) { var g = gen(); if (!seen[g.q]) { seen[g.q] = 1; out.push(g); } }
+    return out;
   }
   var ROWQ = [
     { q: "How many rows does a truth table with 2 inputs have?", a: "4", why: "2 × 2 = 4" },
@@ -293,12 +301,15 @@
   function buildQuestions() {
     var Q = {};
     Q.io = pick(IO, 8).map(function (x) { return { q: x[0], a: x[1], why: x[2], opts: ["INPUT", "OUTPUT"] }; });
-    var syms = shuffle(GATES).concat(pick(GATES, 2));
-    Q.sym = shuffle(syms).map(function (g) { return { img: "../img/gate_" + g + ".png", q: "", a: g, why: GATE_WHY[g], opts: GATES }; });
-    Q.not = []; for (var i = 0; i < 8; i++) { var g = genNot(); g.opts = ["0", "1"]; Q.not.push(g); }
+    // 6 symbols from 4 gates: two gates appear twice, but never back-to-back
+    var syms;
+    do { syms = shuffle(shuffle(GATES).concat(pick(GATES, 2))); }
+    while (syms.some(function (g, i) { return i > 0 && g === syms[i - 1]; }));
+    Q.sym = syms.map(function (g) { return { img: "../img/gate_" + g + ".png", q: "", a: g, why: GATE_WHY[g], opts: GATES }; });
+    Q.not = unique(genNot, 8).map(function (g) { g.opts = ["0", "1"]; return g; });
     var rq = pick(ROWQ.slice(2), 5); rq.splice(Math.floor(rnd() * 5), 0, ROWQ[Math.floor(rnd() * 2)]);
     Q.rows = rq.map(function (x) { return { q: x.q, a: x.a, why: x.why, opts: ["1", "2", "3", "4", "7", "8"] }; });
-    Q.finger = []; for (var j = 0; j < 6; j++) Q.finger.push(genFinger());
+    Q.finger = pick(FINGERS(), 6);
     var st = pick(STORIES.filter(function (s) { return s[1] === "XOR"; }), 2)
       .concat(pick(STORIES.filter(function (s) { return s[1] !== "XOR"; }), 6));
     Q.gate = shuffle(st).map(function (x) { return { q: x[0], a: x[1], why: x[2], opts: GATES }; });
