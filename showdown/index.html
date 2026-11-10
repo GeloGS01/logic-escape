@@ -29,6 +29,8 @@
   .rounds span.done { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
   .rounds span.here { background: var(--ink); border-color: var(--ink); color: var(--white); }
   .rounds span.jump { cursor: pointer; color: var(--ink); }
+  .rounds span.jump.here { color: var(--white); }
+  .rounds span.jump.done { color: var(--green-dark); }
   .rounds span.jump:hover { border-color: var(--amber); background: var(--amber-soft); }
   .teacher-badge { background: var(--violet); color: var(--white); font-weight: 800; font-size: 14px; padding: 4px 10px; border-radius: 999px; margin-left: 10px; vertical-align: middle; }
   .panel { background: var(--amber-soft); border-radius: 14px; padding: 14px 20px; }
@@ -535,7 +537,7 @@
           : '<button class="key' + (held === i ? " held" : "") + '" data-i="' + i + '" style="--c:' + k.col + '">🔑 ' + k.name + " key</button>";
       }).join("") + "</div>";
       html += '<div class="hint">Drag a key into its lock to make that input <b>1</b>. Leave it out for <b>0</b>. Click a key in a lock to take it out.</div>';
-      html += '<div class="actions"><button class="btn" id="testBtn"' + (over ? " disabled" : "") + ">🔑 Turn the keys (" + (3 - tries) + " tries left)</button></div>";
+      html += '<div class="actions"><button class="btn" id="testBtn"' + (over ? " disabled" : "") + ">🔴 Press the OPEN button (" + (3 - tries) + " tr" + (3 - tries === 1 ? "y" : "ies") + " left)</button></div>";
       $("stage").innerHTML = html;
       wire();
     }
