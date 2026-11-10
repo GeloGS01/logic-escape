@@ -733,13 +733,50 @@
       .then(function (d) { if (!d.ok) throw 0; renderOnline(id, d.top); })
       .catch(function () { renderOnline(id, null, "Online board not available right now."); });
   }
+  // A score that can't be posted (no internet, board not ready) waits in a queue on this computer
+  // and is posted again on the next page load or the next finished game, so no score is lost.
+  var PENDING = "logicShowdown.pending";
+  function pendGet() { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } }
+  function pendSet(a) { try { localStorage.setItem(PENDING, JSON.stringify(a)); } catch (e) {} }
+  function postOne(entry) {
+    // text/plain body keeps this a simple request, so Apps Script needs no CORS preflight
+    return fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: entry.name, cls: entry.cls, score: entry.score }) })
+      .then(function (r) { return r.json(); });
+  }
+  var flushing = false;
+  function showTop(list) { renderOnline("onlineStart", list); renderOnline("onlineWin", list); }
+  function refreshTop() {
+    fetch(SCORE_URL + "?board=" + BOARD).then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) throw 0; showTop(d.top); })
+      .catch(function () { renderOnline("onlineStart", null, "Online board not available right now."); renderOnline("onlineWin", null, "Online board not available right now."); });
+  }
+  // posts the queue one score at a time; only one flush runs at once, so nothing is posted twice
+  function flushPending() {
+    if (flushing) return;
+    var q = pendGet();
+    if (!q.length) { refreshTop(); return; }
+    flushing = true;
+    var e = q[0];
+    postOne(e).then(function (d) {
+      // drop it when posted, or when the board refuses it for good (e.g. a 0 score); keep it if the board isn't ready yet
+      if (!(d.ok || (d.error && d.error !== "Unknown board"))) throw 0;
+      pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
+      if (S && e.id === S.id && d.ok) { S.posted = true; save(); }
+      flushing = false;
+      if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
+    }).catch(function () {
+      flushing = false;
+      refreshTop();
+      if (S && pendGet().some(function (x) { return x.id === S.id; }))
+        $("winSent").textContent = "Top 10 not reachable right now: your score is saved and will be posted automatically later.";
+    });
+  }
   function postOnline(sc) {
     renderOnline("onlineWin", null, "Posting your score…");
-    // text/plain body keeps this a simple request, so Apps Script needs no CORS preflight
-    fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: S.nick.slice(0, 12), cls: S.cls, score: sc }) })
-      .then(function (r) { return r.json(); })
-      .then(function (d) { if (!d.ok) throw 0; S.posted = true; save(); renderOnline("onlineWin", d.top); })
-      .catch(function () { loadOnline("onlineWin"); });
+    var q = pendGet().filter(function (x) { return x.id !== S.id; });
+    q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc });
+    pendSet(q);
+    flushPending();
   }
 
   function sendScore(sc, mins) {
@@ -786,7 +823,7 @@
   };
 
 
-  loadOnline("onlineStart");
+  flushPending();   // post any score that failed earlier, then show the Top 10
 
   // resume after a refresh: an answered question moves on, so it can't be re-tried
   S = load();
