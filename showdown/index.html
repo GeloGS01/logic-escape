@@ -316,7 +316,7 @@
     { key: "eqn", name: "Story to Equation", how: "Pick the equation that matches the story.", n: 6, pts: 1, mc: true },
     { key: "trace", name: "Trace It!", how: "Click the Out cells to set each one to 0 or 1, then press Check. 4 points per table.", n: 3, pts: 4 },
     { key: "find", name: "Find Every Way", how: "Click EVERY row that makes Out = 1, then press Check. 4 points per table, minus 1 for each mistake.", n: 2, pts: 4 },
-    { key: "lock", name: "Crack the Lock", how: "The code is hidden in the circuit! Put a key in its lock for 1, leave it out for 0. All three wires go into AND. 3 tries.", n: 3, pts: 4 }
+    { key: "lock", name: "Crack the Lock", how: "The code is hidden in the circuit, and the gates have no labels! Put a key in its lock for 1, leave it out for 0. 3 tries.", n: 3, pts: 4 }
   ];
   var MC_COUNT = ROUNDS.reduce(function (s, r) { return s + (r.mc ? r.n : 0); }, 0);
   var BASE = ROUNDS.reduce(function (s, r) { return s + r.n * r.pts; }, 0);
@@ -344,8 +344,13 @@
     var mk = function (t) { return { eq: t.eq, n: t.n, ans: rows(t.n).map(function (r) { return t.f.apply(null, r); }) }; };
     Q.trace = tr.slice(0, 3).map(mk);
     Q.find = tr.slice(3, 5).map(mk);
-    var codes = shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 3);
-    Q.lock = codes.map(function (c) { return { code: [c >> 2 & 1, c >> 1 & 1, c & 1], holes: shuffle([0, 1, 2]), tray: shuffle([0, 1, 2]) }; });
+    // lock 1: plain AND-AND warm-up; locks 2 and 3 use NAND / NOR. Every lock opens for exactly ONE code, all 3 codes different.
+    Q.lock = []; var used = {};
+    for (var L = 0, guard = 0; L < 3 && guard < 300; guard++) {
+      var c = genLock(L === 0), key = c.code.join("");
+      if (used[key]) continue;
+      used[key] = 1; Q.lock.push({ code: c.code, circ: c, holes: shuffle([0, 1, 2]), tray: shuffle([0, 1, 2]) }); L++;
+    }
     return Q;
   }
 
@@ -496,36 +501,67 @@
     };
   }
 
-  // crack the lock: read the circuit, then put a key in its lock for 1, leave it out for 0
+  // crack the lock: read the circuit (gates are not labelled), then put a key in its lock for 1, leave it out for 0
   var KEYS = [{ n: "A", name: "Red", col: "#DC2626" }, { n: "B", name: "Blue", col: "#2563EB" }, { n: "C", name: "Green", col: "#16A34A" }];
+  // circuit: c.n = NOT on input A/B/C; stage 1 = g1 (A, B) + optional NOT after (n1); stage 2 = g2 (stage 1, C) + optional NOT after (n2)
+  function lockOut(c, bits) {
+    var e = bits.map(function (v, i) { return c.n[i] ? 1 - v : v; });
+    var f = function (g, x, y) { return g === "AND" ? x & y : x | y; };
+    var s1 = f(c.g1, e[0], e[1]) ^ (c.n1 ? 1 : 0);
+    return f(c.g2, s1, e[2]) ^ (c.n2 ? 1 : 0);
+  }
+  function openCodes(c) { return rows(3).filter(function (r) { return lockOut(c, r) === 1; }); }
+  function genLock(plain) {
+    // stage 2 is AND (needs stage 1 = 1 in one row only: AND or NOR) or NOR (needs stage 1 = 0 in one row only: NAND or OR)
+    for (var tries = 0; tries < 200; tries++) {
+      var nor2 = plain ? false : rnd() < .5;
+      var s1 = plain ? "AND" : (nor2 ? pick(["NAND", "OR"], 1)[0] : pick(["AND", "NOR"], 1)[0]);
+      if (!plain && !nor2 && s1 === "AND") continue;          // locks 2 and 3 always have a NAND or NOR
+      var c = { n: [rnd() < .5, rnd() < .5, rnd() < .5], g1: s1 === "AND" || s1 === "NAND" ? "AND" : "OR", n1: s1 === "NAND" || s1 === "NOR",
+        g2: nor2 ? "OR" : "AND", n2: nor2 };
+      var codes = openCodes(c);
+      if (codes.length === 1) { c.code = codes[0]; return c; }
+    }
+    return { n: [false, true, false], g1: "AND", n1: false, g2: "AND", n2: false, code: [1, 0, 1] };
+  }
   function andPath(x, y, w, h) { var r = h / 2; return "M" + x + " " + y + " H" + (x + w - r) + " A" + r + " " + r + " 0 0 1 " + (x + w - r) + " " + (y + h) + " H" + x + " Z"; }
-  function lockSvg(nots) {
-    var ys = [40, 100, 160], ends = [230, 230, 370];
-    var g = '<svg viewBox="0 0 540 200" role="img" aria-label="Lock circuit" style="max-width:640px;margin:0 auto">';
+  function orPath(x, y, w, h) {
+    return "M" + x + " " + y + " Q" + (x + w * .35) + " " + (y + h / 2) + " " + x + " " + (y + h) +
+      " Q" + (x + w * .65) + " " + (y + h) + " " + (x + w) + " " + (y + h / 2) + " Q" + (x + w * .65) + " " + y + " " + x + " " + y + " Z";
+  }
+  function gateSvg(g, x, y, w, h) { return '<path d="' + (g === "AND" ? andPath(x, y, w, h) : orPath(x, y, w, h)) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/>'; }
+  function notSvg(x, y) {   // triangle from x to x+40, bubble, output at x+52
+    return '<path d="M' + x + " " + (y - 18) + " L" + (x + 40) + " " + y + " L" + x + " " + (y + 18) + ' Z" fill="#fff" stroke="#0F172A" stroke-width="3"/><circle cx="' + (x + 47) + '" cy="' + y + '" r="6" fill="#fff" stroke="#0F172A" stroke-width="3"/>';
+  }
+  function lockSvg(c) {
+    var ys = [40, 100, 160], g = '<svg viewBox="0 0 640 200" role="img" aria-label="Lock circuit" style="max-width:720px;margin:0 auto">';
+    var G1X = 230, G2X = 400, OUT1 = 302, OUT2 = 482;
+    // wires first; gates are drawn on top (white fill hides the wire ends)
+    KEYS.forEach(function (k, i) {
+      var y = ys[i], end = i < 2 ? G1X + 14 : G2X + 14;
+      g += '<line x1="38" y1="' + y + '" x2="' + end + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
+    });
+    g += '<line x1="' + OUT1 + '" y1="70" x2="' + (G2X + 14) + '" y2="70" stroke="#0F172A" stroke-width="4"/>';
+    g += '<line x1="' + OUT2 + '" y1="115" x2="586" y2="115" stroke="#0F172A" stroke-width="4"/>';
     KEYS.forEach(function (k, i) {
       var y = ys[i];
       g += '<circle cx="22" cy="' + y + '" r="16" fill="' + k.col + '"/><text x="22" y="' + (y + 6) + '" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Arial">' + k.n + "</text>";
-      if (nots[i]) {
-        g += '<line x1="38" y1="' + y + '" x2="92" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
-        g += '<path d="M92 ' + (y - 18) + " L132 " + y + " L92 " + (y + 18) + ' Z" fill="#fff" stroke="#0F172A" stroke-width="3"/><circle cx="139" cy="' + y + '" r="6" fill="#fff" stroke="#0F172A" stroke-width="3"/>';
-        g += '<text x="98" y="' + (y + 34) + '" font-size="13" font-weight="700" fill="#64748B" font-family="Arial">NOT</text>';
-        g += '<line x1="145" y1="' + y + '" x2="' + ends[i] + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
-      } else {
-        g += '<line x1="38" y1="' + y + '" x2="' + ends[i] + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
-      }
+      if (c.n[i]) g += notSvg(88, y);
     });
-    g += '<path d="' + andPath(230, 22, 72, 96) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/><text x="248" y="76" font-size="15" font-weight="800" fill="#0F172A" font-family="Arial">AND</text>';
-    g += '<line x1="302" y1="70" x2="370" y2="70" stroke="#0F172A" stroke-width="4"/>';
-    g += '<path d="' + andPath(370, 52, 82, 126) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/><text x="388" y="121" font-size="15" font-weight="800" fill="#0F172A" font-family="Arial">AND</text>';
-    g += '<line x1="452" y1="115" x2="490" y2="115" stroke="#0F172A" stroke-width="4"/><text x="494" y="127" font-size="34">🔒</text>';
+    g += gateSvg(c.g1, G1X, 22, 72, 96);
+    if (c.n1) g += notSvg(320, 70);
+    g += gateSvg(c.g2, G2X, 52, 82, 126);
+    if (c.n2) g += notSvg(500, 115);
+    g += '<text x="590" y="127" font-size="34">🔒</text>';
     return g + "</svg>";
   }
   function renderLock() {
-    var Q = S.Q.lock[S.q], code = Q.code, nots = code.map(function (v) { return v === 0; });
-    var holes = Q.holes || [0, 1, 2], tray = Q.tray || [0, 1, 2];
+    var Q = S.Q.lock[S.q];
+    var circ = Q.circ || { n: Q.code.map(function (v) { return v === 0; }), g1: "AND", n1: false, g2: "AND", n2: false };
+    var code = Q.code, holes = Q.holes || [0, 1, 2], tray = Q.tray || [0, 1, 2];
     var inLock = [false, false, false], tries = 0, held = null, over = false;
     function draw() {
-      var html = '<div class="question" style="font-size:24px;margin-bottom:6px">Read the circuit. Which keys open the lock?</div>' + lockSvg(nots);
+      var html = '<div class="question" style="font-size:24px;margin-bottom:6px">Read the circuit. Which keys open the lock?</div>' + lockSvg(circ);
       html += '<div class="locks">' + holes.map(function (i) {
         var k = KEYS[i];
         return '<div class="hole' + (inLock[i] ? " filled" : "") + '" data-i="' + i + '" style="--c:' + k.col + '"><div class="lk">' + (inLock[i] ? "🔑" : "🔒") +
@@ -588,24 +624,29 @@
       });
       $("testBtn").onclick = test;
     }
+    function names() {
+      var s1 = circ.g1 === "AND" ? (circ.n1 ? "NAND" : "AND") : (circ.n1 ? "NOR" : "OR");
+      var s2 = circ.g2 === "AND" ? (circ.n2 ? "NAND" : "AND") : (circ.n2 ? "NOR" : "OR");
+      return "The gates were " + s1 + " (A, B) then " + s2 + " (with C).";
+    }
     function test() {
       if (over) return;
       tries++;
-      var ok = inLock.every(function (x, i) { return (x ? 1 : 0) === code[i]; });
+      var ok = lockOut(circ, inLock.map(function (x) { return x ? 1 : 0; })) === 1;
       if (ok) {
         over = true; draw();
         var pts = [4, 3, 2][tries - 1];
-        fb(true, "🔓 Unlocked on try " + tries + "! +" + pts, "No NOT on the wire: that key goes IN (1). NOT on the wire: leave that key OUT (0).");
+        fb(true, "🔓 Unlocked on try " + tries + "! +" + pts, names());
         done(pts);
       } else if (tries >= 3) {
         over = true; inLock = code.map(function (v) { return v === 1; }); draw();
         var ins = KEYS.filter(function (k, i) { return code[i]; }).map(function (k) { return k.name; });
-        fb(false, "🔒 Out of tries. +0", "Code " + code.join(" ") + ": " + (ins.length ? ins.join(" + ") + " key" + (ins.length > 1 ? "s" : "") + " in" : "no keys in") +
-          ". A wire with NOT needs 0, so that key stays OUT.");
+        fb(false, "🔒 Out of tries. +0", "Code " + code.join(" ") + ": " + (ins.length ? ins.join(" + ") + " key" + (ins.length > 1 ? "s" : "") + " in" : "no keys in") + ". " + names());
         done(0);
       } else {
         draw();
-        fb(false, "🔒 Still locked! " + (3 - tries) + " tr" + (3 - tries === 1 ? "y" : "ies") + " left.", "Hint: NOT flips. A wire with NOT needs a 0 to send a 1 into AND.");
+        fb(false, "🔒 Still locked! " + (3 - tries) + " tr" + (3 - tries === 1 ? "y" : "ies") + " left.",
+          "Work backwards from the lock: what must the last gate get to output 1? A circle (NOT) flips the signal.");
       }
     }
     draw();
