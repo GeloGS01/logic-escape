@@ -116,6 +116,7 @@
   .box td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
   .box td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
   .box tr.me td { background: var(--amber-soft); font-weight: 800; }
+  .box .scroll { max-height: 440px; overflow-y: auto; }
   .sent { color: var(--muted); font-size: 16px; min-height: 22px; }
   footer { color: var(--muted); font-size: 14px; text-align: center; margin-top: 24px; }
   footer a { color: var(--muted); }
@@ -140,7 +141,7 @@
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
     <p><button id="startBtn" class="btn amber">Start</button></p>
     <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
-    <div class="cols"><div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineStart"></table></div></div>
+    <div class="cols"><div class="box"><h3>🌐 Leaderboard · all ICT 7 classes</h3><div class="scroll"><table id="onlineStart"></table></div></div></div>
   </section>
 
   <section id="gameView" class="hidden">
@@ -163,7 +164,7 @@
     <p><button id="againBtn" class="btn amber">▶ Play again (new questions)</button></p>
     <div class="cols">
       <div class="box"><h3>This game</h3><table id="winTable"></table></div>
-      <div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineWin"></table></div>
+      <div class="box"><h3>🌐 Leaderboard · all ICT 7 classes</h3><div class="scroll"><table id="onlineWin"></table></div></div>
     </div>
     <p id="winStamp" style="font-size:16px;color:var(--muted)"></p>
   </section>
@@ -762,15 +763,15 @@
       // drop it when posted, or when the board refuses it for good (e.g. a 0 score); keep it if the board isn't ready yet
       if (!(d.ok || d.error === "Score not accepted")) throw d.error || 0;   // only a bad score is dropped; anything else (board or class not set up yet) retries later
       pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
-      if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to the Top 10"; }
-      if (S && e.id === S.id && !d.ok) $("winTop").textContent = "The Top 10 refused this score: “" + d.error + "”. Tell your teacher.";
+      if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to the leaderboard"; }
+      if (S && e.id === S.id && !d.ok) $("winTop").textContent = "The leaderboard refused this score: “" + d.error + "”. Tell your teacher.";
       flushing = false;
       if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
     }).catch(function (err) {
       flushing = false;
       refreshTop();
       if (S && pendGet().some(function (x) { return x.id === S.id; }))
-        $("winTop").textContent = "Top 10 not ready" + (typeof err === "string" ? " (“" + err + "”)" : "") + ": your score is saved and will be posted automatically later.";
+        $("winTop").textContent = "Leaderboard not ready" + (typeof err === "string" ? " (“" + err + "”)" : "") + ": your score is saved and will be posted automatically later.";
     });
   }
   function postOnline(sc) {
