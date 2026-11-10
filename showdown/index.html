@@ -449,16 +449,18 @@
     });
     check.onclick = function () {
       locked = true; check.disabled = true;
-      var mistakes = 0, need = Q.ans.filter(function (v) { return v === 1; }).length;
+      var mistakes = 0, missed = 0, extra = 0, need = Q.ans.filter(function (v) { return v === 1; }).length;
       trs.forEach(function (tr, i) {
         tr.classList.remove("on");
         if (on[i] && Q.ans[i]) tr.classList.add("right");
-        else if (on[i] && !Q.ans[i]) { tr.classList.add("wrong"); mistakes++; }
-        else if (!on[i] && Q.ans[i]) { tr.classList.add("missed"); mistakes++; }
+        else if (on[i] && !Q.ans[i]) { tr.classList.add("wrong"); mistakes++; extra++; }
+        else if (!on[i] && Q.ans[i]) { tr.classList.add("missed"); mistakes++; missed++; }
       });
       var pts = Math.max(0, 4 - mistakes);
-      fb(mistakes === 0, mistakes === 0 ? "✔ All " + need + " found! +4" : "✘ " + mistakes + " mistake" + (mistakes > 1 ? "s" : "") + ": +" + pts,
-        "There are " + need + " rows that make Out = 1. Dashed red rows were missed.");
+      var why = "There are " + need + " rows that make Out = 1.";
+      if (missed) why += "<br>Dashed red rows: you missed them.";
+      if (extra) why += "<br>Solid red rows: these make Out = 0.";
+      fb(mistakes === 0, mistakes === 0 ? "✔ All " + need + " found! +4" : "✘ " + mistakes + " mistake" + (mistakes > 1 ? "s" : "") + ": +" + pts, why);
       done(pts);
     };
   }
