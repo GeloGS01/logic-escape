@@ -159,6 +159,7 @@
     <div class="big" id="winScore"></div>
     <div class="best" id="winBest"></div>
     <div class="sent" id="winSent"></div>
+    <div class="sent" id="winTop"></div>
     <p><button id="againBtn" class="btn amber">▶ Play again (new questions)</button></p>
     <div class="cols">
       <div class="box"><h3>This game</h3><table id="winTable"></table></div>
@@ -761,19 +762,20 @@
       // drop it when posted, or when the board refuses it for good (e.g. a 0 score); keep it if the board isn't ready yet
       if (!(d.ok || (d.error && d.error !== "Unknown board"))) throw 0;
       pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
-      if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winSent").textContent = "✔ Posted to the Top 10"; }
-      if (S && e.id === S.id && !d.ok) $("winSent").textContent = "The Top 10 refused this score: “" + d.error + "”. Tell your teacher.";
+      if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to the Top 10"; }
+      if (S && e.id === S.id && !d.ok) $("winTop").textContent = "The Top 10 refused this score: “" + d.error + "”. Tell your teacher.";
       flushing = false;
       if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
     }).catch(function () {
       flushing = false;
       refreshTop();
       if (S && pendGet().some(function (x) { return x.id === S.id; }))
-        $("winSent").textContent = "Top 10 not reachable right now: your score is saved and will be posted automatically later.";
+        $("winTop").textContent = "Top 10 not reachable right now: your score is saved and will be posted automatically later.";
     });
   }
   function postOnline(sc) {
     renderOnline("onlineWin", null, "Posting your score…");
+    $("winTop").textContent = "";
     var q = pendGet().filter(function (x) { return x.id !== S.id; });
     q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc });
     pendSet(q);
