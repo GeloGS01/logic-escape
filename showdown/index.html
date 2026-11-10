@@ -520,7 +520,8 @@
       var c = { n: [rnd() < .5, rnd() < .5, rnd() < .5], g1: s1 === "AND" || s1 === "NAND" ? "AND" : "OR", n1: s1 === "NAND" || s1 === "NOR",
         g2: nor2 ? "OR" : "AND", n2: nor2 };
       var codes = openCodes(c);
-      if (codes.length === 1) { c.code = codes[0]; return c; }
+      // exactly one code, and never 0 0 0 (a lock that opens with no keys at all feels like a trick)
+      if (codes.length === 1 && codes[0].join("") !== "000") { c.code = codes[0]; return c; }
     }
     return { n: [false, true, false], g1: "AND", n1: false, g2: "AND", n2: false, code: [1, 0, 1] };
   }
