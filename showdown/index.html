@@ -760,17 +760,17 @@
     var e = q[0];
     postOne(e).then(function (d) {
       // drop it when posted, or when the board refuses it for good (e.g. a 0 score); keep it if the board isn't ready yet
-      if (!(d.ok || (d.error && d.error !== "Unknown board"))) throw 0;
+      if (!(d.ok || d.error === "Score not accepted")) throw d.error || 0;   // only a bad score is dropped; anything else (board or class not set up yet) retries later
       pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
       if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to the Top 10"; }
       if (S && e.id === S.id && !d.ok) $("winTop").textContent = "The Top 10 refused this score: “" + d.error + "”. Tell your teacher.";
       flushing = false;
       if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
-    }).catch(function () {
+    }).catch(function (err) {
       flushing = false;
       refreshTop();
       if (S && pendGet().some(function (x) { return x.id === S.id; }))
-        $("winTop").textContent = "Top 10 not reachable right now: your score is saved and will be posted automatically later.";
+        $("winTop").textContent = "Top 10 not ready" + (typeof err === "string" ? " (“" + err + "”)" : "") + ": your score is saved and will be posted automatically later.";
     });
   }
   function postOnline(sc) {
