@@ -112,11 +112,12 @@
     <p style="font-size:22px">10 rounds · 56 questions · every answer checks itself.<br>
       Answer fast for <b style="color:var(--violet)">⚡ speed bonus</b> points, and keep a <b style="color:#B45309">🔥 streak</b> going.<br>
       Every game has new questions, so play again to beat your high score!</p>
-    <p><input id="nick" maxlength="20" placeholder="Your nickname" autocomplete="off"></p>
+    <p><input id="nick" maxlength="12" placeholder="Your nickname" autocomplete="off"></p>
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
     <p><button id="startBtn" class="btn amber">Start</button></p>
     <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
-    <div class="cols"><div class="box"><h3>🏆 Hall of Fame (this iMac)</h3><table id="hofStart"></table></div></div>
+    <div class="cols"><div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineStart"></table></div>
+      <div class="box"><h3>💻 Best on this iMac</h3><table id="hofStart"></table></div></div>
   </section>
 
   <section id="gameView" class="hidden">
@@ -138,7 +139,8 @@
     <p><button id="againBtn" class="btn amber">▶ Play again (new questions)</button></p>
     <div class="cols">
       <div class="box"><h3>This game</h3><table id="winTable"></table></div>
-      <div class="box"><h3>🏆 Hall of Fame (this iMac)</h3><table id="hofWin"></table></div>
+      <div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineWin"></table></div>
+      <div class="box"><h3>💻 Best on this iMac</h3><table id="hofWin"></table></div>
     </div>
     <p id="winStamp" style="font-size:16px;color:var(--muted)"></p>
   </section>
@@ -150,6 +152,9 @@
   // ---------- class score board (Google Form, no sign-in) ----------
   var FORM = "https://docs.google.com/forms/d/e/1FAIpQLSdhbsXDD5-ORVczBlxkV9KdMoBht0OjjJgl-REO1OGkiMGTew/formResponse";
   var ENTRY = { nick: 87367979, cls: 1227654613, score: 394716262, max: 1738893973, run: 1155766585, mins: 1604712144, seed: 888192609 };
+  // online Top 10: the same Google Apps Script web app as Binary Lab, board "ict7-showdown"
+  var SCORE_URL = "https://script.google.com/macros/s/AKfycbwGfGhDRjyTZJ2Y2Rjv7kMhflGVrs6RNkuuBfHDxO11dbH-tpLHXlbH0Rnx060KyFDJ/exec";
+  var BOARD = "ict7-showdown";
 
   // ---------- seeded random ----------
   function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a);
@@ -543,6 +548,29 @@
     $("winStamp").textContent = "Time: " + mins + " min  ·  Finished at " + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2) + "  ·  Max possible: " + MAX + " + streak bonuses";
     if (!S.sent) sendScore(sc, mins);
     else $("winSent").textContent = "✔ Score sent to the class board";
+    if (!S.posted) postOnline(sc); else loadOnline("onlineWin");
+  }
+
+  // ---------- online Top 10 (shared by every iMac) ----------
+  function renderOnline(id, list, msg) {
+    var me = S ? (S.nick.slice(0, 12).toLowerCase() + "|" + S.cls) : "";
+    $(id).innerHTML = list && list.length ? list.map(function (e, i) {
+      return '<tr class="' + ((e.name.toLowerCase() + "|" + e.cls) === me ? "me" : "") + '"><td>' + medal(i) + "</td><td>" + esc(e.name) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("")
+      : '<tr><td style="color:var(--muted)">' + (msg || "No scores yet. Be the first!") + "</td></tr>";
+  }
+  function loadOnline(id) {
+    renderOnline(id, null, "Loading…");
+    fetch(SCORE_URL + "?board=" + BOARD).then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) throw 0; renderOnline(id, d.top); })
+      .catch(function () { renderOnline(id, null, "Online board not available right now."); });
+  }
+  function postOnline(sc) {
+    renderOnline("onlineWin", null, "Posting your score…");
+    // text/plain body keeps this a simple request, so Apps Script needs no CORS preflight
+    fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: S.nick.slice(0, 12), cls: S.cls, score: sc }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) throw 0; S.posted = true; save(); renderOnline("onlineWin", d.top); })
+      .catch(function () { loadOnline("onlineWin"); });
   }
 
   function sendScore(sc, mins) {
@@ -590,6 +618,8 @@
   $("hofStart").innerHTML = h0.length ? h0.slice(0, 10).map(function (e, i) {
     return "<tr><td>" + medal(i) + "</td><td>" + esc(e.nick) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("")
     : '<tr><td style="color:var(--muted)">No scores yet. Be the first!</td></tr>';
+
+  loadOnline("onlineStart");
 
   // resume after a refresh: an answered question moves on, so it can't be re-tried
   S = load();
