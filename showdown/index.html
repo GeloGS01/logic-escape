@@ -28,6 +28,9 @@
     padding: 4px 10px; border-radius: 10px; font-size: 14px; }
   .rounds span.done { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
   .rounds span.here { background: var(--ink); border-color: var(--ink); color: var(--white); }
+  .rounds span.jump { cursor: pointer; color: var(--ink); }
+  .rounds span.jump:hover { border-color: var(--amber); background: var(--amber-soft); }
+  .teacher-badge { background: var(--violet); color: var(--white); font-weight: 800; font-size: 14px; padding: 4px 10px; border-radius: 999px; margin-left: 10px; vertical-align: middle; }
   .panel { background: var(--amber-soft); border-radius: 14px; padding: 14px 20px; }
   .panel h2 { margin: 0 0 4px; font-size: 26px; }
   .panel .how { color: #92400E; font-weight: 600; }
@@ -358,12 +361,17 @@
   function score() { var t = 0; ["points", "bonus"].forEach(function (k) { Object.keys(S[k]).forEach(function (r) { S[k][r].forEach(function (p) { t += p || 0; }); }); }); return t + (S.streakPts || 0); }
   function updateScore() {
     $("scoreBox").textContent = S ? score() + " pts" : "";
-    $("bestBox").textContent = S && S.best ? "High score: " + S.best : "";
+    if (S && S.teacher) $("bestBox").innerHTML = '<span class="teacher-badge">🧑‍🏫 TEACHER MODE · click any round</span>';
+    else $("bestBox").textContent = S && S.best ? "High score: " + S.best : "";
   }
   function show(view) { ["startView", "gameView", "winView"].forEach(function (v) { $(v).classList.toggle("hidden", v !== view); }); }
   function tabs() {
     $("roundTabs").innerHTML = ROUNDS.map(function (r, i) {
-      return '<span class="' + (i < S.round ? "done" : i === S.round ? "here" : "") + '">' + (i + 1) + ". " + r.name + "</span>"; }).join("");
+      return '<span data-r="' + i + '" class="' + (i < S.round ? "done" : i === S.round ? "here" : "") + (S.teacher ? " jump" : "") + '"' +
+        (S.teacher ? ' title="Teacher mode: jump to this round"' : "") + ">" + (i + 1) + ". " + r.name + "</span>"; }).join("");
+    if (S.teacher) $("roundTabs").querySelectorAll("span").forEach(function (t) {
+      t.onclick = function () { S.round = +t.getAttribute("data-r"); S.q = 0; S.answered = false; S.end = null; save(); render(); };
+    });
   }
   var tick = null;
   function stopTick() { if (tick) { clearInterval(tick); tick = null; } $("speedBox").textContent = ""; }
@@ -614,6 +622,17 @@
   function win() {
     stopTick(); show("winView");
     var sc = score(), mins = Math.max(1, Math.round((S.end - S.start) / 60000));
+    if (S.teacher) {   // teacher test games are never posted or ranked
+      updateScore();
+      $("winWho").textContent = S.nick + " · 🧑‍🏫 Teacher mode";
+      $("winScore").textContent = sc + " pts";
+      $("winBest").textContent = "Test game: not sent to any board.";
+      $("winSent").textContent = "";
+      $("winTable").innerHTML = ROUNDS.map(function (r) { return "<tr><td>" + r.name + '</td><td class="n">' + (S.points[r.key].reduce(function (a, b) { return a + (b || 0); }, 0) + S.bonus[r.key].reduce(function (a, b) { return a + (b || 0); }, 0)) + "</td></tr>"; }).join("");
+      $("hofWin").innerHTML = ""; loadOnline("onlineWin");
+      $("winStamp").textContent = "Click “Play again” for a new test game.";
+      return;
+    }
     if (!S.logged) {
       var prevBest = S.best || 0;
       S.best = Math.max(prevBest, sc); S.newBest = sc > prevBest; S.logged = true;
@@ -674,11 +693,11 @@
     } catch (e) { $("winSent").textContent = "Could not reach the class board."; }
   }
 
-  function newGame(nick, cls, run, best) {
+  function newGame(nick, cls, run, best, teacher) {
     var seed = Math.floor(Math.random() * 1e9);
     rnd = mulberry32(seed);
     S = { nick: nick, cls: cls, seed: seed, run: run, best: best || 0, start: Date.now(), end: null, round: 0, q: 0, answered: false,
-      streak: 0, streakPts: 0, Q: buildQuestions(), points: {}, bonus: {} };
+      streak: 0, streakPts: 0, Q: buildQuestions(), points: {}, bonus: {}, teacher: !!teacher };
     ROUNDS.forEach(function (r) { S.points[r.key] = []; S.bonus[r.key] = []; });
     save(); render();
   }
@@ -691,12 +710,14 @@
   $("startBtn").onclick = function () {
     var nick = $("nick").value.trim();
     if (!nick) { $("startMsg").textContent = "Type your nickname first."; return; }
+    // teacher test mode: name "Angelo" with no class -> jump to any round, nothing is posted
+    if (!chosen && nick.toLowerCase() === "angelo") { newGame(nick, "Teacher", 1, 0, true); return; }
     if (!chosen) { $("startMsg").textContent = "Click your class: 7A, 7B or 7C."; return; }
     newGame(nick, chosen, 1, 0);
   };
   $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
   $("nextBtn").onclick = next;
-  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best); };
+  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best, S.teacher); };
   $("resetLink").onclick = function (e) {
     e.preventDefault();
     if (!S || confirm("New player? This game will end (the Hall of Fame stays).")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); }
