@@ -69,7 +69,21 @@
   table.tt tr.pickrow.right td { background: var(--green-soft); color: var(--green-dark); }
   table.tt tr.pickrow.wrong td { background: var(--red-soft); color: var(--red); }
   table.tt tr.pickrow.missed td { background: #FFF; color: var(--red); outline: 3px dashed var(--red); outline-offset: -3px; }
-  .lock { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin: 6px 0 14px; }
+  .locks { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 10px 0 12px; }
+  .hole { border: 4px dashed var(--c); border-radius: 16px; padding: 10px 18px; text-align: center; min-width: 170px; cursor: pointer; background: var(--white); }
+  .hole .lk { font-size: 34px; }
+  .hole .lbl { font-weight: 800; color: var(--c); font-size: 18px; }
+  .hole .bit { font: 700 15px "Courier New", monospace; color: var(--muted); }
+  .hole.filled { border-style: solid; background: color-mix(in srgb, var(--c) 14%, white); }
+  .hole.filled .bit { color: var(--ink); }
+  .hole.hover { box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 35%, white); }
+  .tray { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; background: var(--card); border-radius: 14px; padding: 12px; }
+  .tray .trayl { font-weight: 800; color: var(--muted); }
+  .key { font: inherit; font-weight: 800; font-size: 20px; padding: 10px 18px; border-radius: 999px; border: 3px solid var(--c); background: var(--white); color: var(--c); cursor: grab; touch-action: none; user-select: none; }
+  .key.held { background: var(--c); color: var(--white); }
+  .key.ghost { opacity: .35; border-style: dashed; cursor: default; }
+  .key.dragging { position: fixed; z-index: 99; transform: translate(-50%, -50%) rotate(-8deg); pointer-events: none; box-shadow: 0 8px 20px rgba(0,0,0,.25); cursor: grabbing; }
+  .hint { text-align: center; color: var(--muted); margin-top: 10px; font-size: 17px; }
   .wire { background: var(--card); border-radius: 12px; padding: 12px 16px; text-align: center; min-width: 170px; }
   .wire .name { font-size: 28px; font-weight: 800; }
   .wire button { font: inherit; font-weight: 800; font-size: 20px; padding: 10px 16px; border-radius: 10px; border: 3px solid var(--line); background: var(--white); cursor: pointer; margin-top: 6px; width: 100%; }
@@ -297,7 +311,7 @@
     { key: "eqn", name: "Story to Equation", how: "Pick the equation that matches the story.", n: 6, pts: 1, mc: true },
     { key: "trace", name: "Trace It!", how: "Click the Out cells to set each one to 0 or 1, then press Check. 4 points per table.", n: 3, pts: 4 },
     { key: "find", name: "Find Every Way", how: "Click EVERY row that makes Out = 1, then press Check. 4 points per table, minus 1 for each mistake.", n: 2, pts: 4 },
-    { key: "lock", name: "Crack the Lock", how: "Click a switch to send it through a NOT gate. All three go into AND. Make it open for the secret code. 3 tries.", n: 3, pts: 4 }
+    { key: "lock", name: "Crack the Lock", how: "The code is hidden in the circuit! Put a key in its lock for 1, leave it out for 0. All three wires go into AND. 3 tries.", n: 3, pts: 4 }
   ];
   var MC_COUNT = ROUNDS.reduce(function (s, r) { return s + (r.mc ? r.n : 0); }, 0);
   var BASE = ROUNDS.reduce(function (s, r) { return s + r.n * r.pts; }, 0);
@@ -326,7 +340,7 @@
     Q.trace = tr.slice(0, 3).map(mk);
     Q.find = tr.slice(3, 5).map(mk);
     var codes = shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 3);
-    Q.lock = codes.map(function (c) { return { code: [c >> 2 & 1, c >> 1 & 1, c & 1] }; });
+    Q.lock = codes.map(function (c) { return { code: [c >> 2 & 1, c >> 1 & 1, c & 1], holes: shuffle([0, 1, 2]), tray: shuffle([0, 1, 2]) }; });
     return Q;
   }
 
@@ -472,44 +486,116 @@
     };
   }
 
-  // crack the lock
+  // crack the lock: read the circuit, then put a key in its lock for 1, leave it out for 0
+  var KEYS = [{ n: "A", name: "Red", col: "#DC2626" }, { n: "B", name: "Blue", col: "#2563EB" }, { n: "C", name: "Green", col: "#16A34A" }];
+  function andPath(x, y, w, h) { var r = h / 2; return "M" + x + " " + y + " H" + (x + w - r) + " A" + r + " " + r + " 0 0 1 " + (x + w - r) + " " + (y + h) + " H" + x + " Z"; }
+  function lockSvg(nots) {
+    var ys = [40, 100, 160], ends = [230, 230, 370];
+    var g = '<svg viewBox="0 0 540 200" role="img" aria-label="Lock circuit" style="max-width:640px;margin:0 auto">';
+    KEYS.forEach(function (k, i) {
+      var y = ys[i];
+      g += '<circle cx="22" cy="' + y + '" r="16" fill="' + k.col + '"/><text x="22" y="' + (y + 6) + '" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Arial">' + k.n + "</text>";
+      if (nots[i]) {
+        g += '<line x1="38" y1="' + y + '" x2="92" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
+        g += '<path d="M92 ' + (y - 18) + " L132 " + y + " L92 " + (y + 18) + ' Z" fill="#fff" stroke="#0F172A" stroke-width="3"/><circle cx="139" cy="' + y + '" r="6" fill="#fff" stroke="#0F172A" stroke-width="3"/>';
+        g += '<text x="98" y="' + (y + 34) + '" font-size="13" font-weight="700" fill="#64748B" font-family="Arial">NOT</text>';
+        g += '<line x1="145" y1="' + y + '" x2="' + ends[i] + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
+      } else {
+        g += '<line x1="38" y1="' + y + '" x2="' + ends[i] + '" y2="' + y + '" stroke="' + k.col + '" stroke-width="5"/>';
+      }
+    });
+    g += '<path d="' + andPath(230, 22, 72, 96) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/><text x="248" y="76" font-size="15" font-weight="800" fill="#0F172A" font-family="Arial">AND</text>';
+    g += '<line x1="302" y1="70" x2="370" y2="70" stroke="#0F172A" stroke-width="4"/>';
+    g += '<path d="' + andPath(370, 52, 82, 126) + '" fill="#fff" stroke="#0F172A" stroke-width="3"/><text x="388" y="121" font-size="15" font-weight="800" fill="#0F172A" font-family="Arial">AND</text>';
+    g += '<line x1="452" y1="115" x2="490" y2="115" stroke="#0F172A" stroke-width="4"/><text x="494" y="127" font-size="34">🔒</text>';
+    return g + "</svg>";
+  }
   function renderLock() {
-    var Q = S.Q.lock[S.q], nots = [false, false, false], tries = 0, names = ["A", "B", "C"];
-    function eqText() { return "Open = " + names.map(function (n, i) { return nots[i] ? "NOT " + n : n; }).join(" AND "); }
+    var Q = S.Q.lock[S.q], code = Q.code, nots = code.map(function (v) { return v === 0; });
+    var holes = Q.holes || [0, 1, 2], tray = Q.tray || [0, 1, 2];
+    var inLock = [false, false, false], tries = 0, held = null, over = false;
     function draw() {
-      var html = '<div class="question">Secret code: <span class="mono">' + Q.code.join(" ") + "</span></div>";
-      html += '<div class="lock">' + names.map(function (n, i) {
-        return '<div class="wire"><div class="name">' + n + '</div><button data-i="' + i + '" class="' + (nots[i] ? "not" : "") + '">' + (nots[i] ? "through NOT" : "straight in") + "</button></div>"; }).join("") + "</div>";
-      html += '<div class="eq">' + eqText() + '</div><div class="actions"><button class="btn" id="testBtn">Test my lock (' + (3 - tries) + " tries left)</button></div>";
-      html += '<div id="lockTable" style="margin-top:12px"></div>';
+      var html = '<div class="question" style="font-size:24px;margin-bottom:6px">Read the circuit. Which keys open the lock?</div>' + lockSvg(nots);
+      html += '<div class="locks">' + holes.map(function (i) {
+        var k = KEYS[i];
+        return '<div class="hole' + (inLock[i] ? " filled" : "") + '" data-i="' + i + '" style="--c:' + k.col + '"><div class="lk">' + (inLock[i] ? "🔑" : "🔒") +
+          '</div><div class="lbl">' + k.name + " lock (" + k.n + ')</div><div class="bit">' + (inLock[i] ? "key in = 1" : "empty = 0") + "</div></div>";
+      }).join("") + "</div>";
+      html += '<div class="tray"><span class="trayl">Your keys:</span>' + tray.map(function (i) {
+        var k = KEYS[i];
+        return inLock[i] ? '<span class="key ghost" style="--c:' + k.col + '">' + k.name + " key</span>"
+          : '<button class="key' + (held === i ? " held" : "") + '" data-i="' + i + '" style="--c:' + k.col + '">🔑 ' + k.name + " key</button>";
+      }).join("") + "</div>";
+      html += '<div class="hint">Drag a key into its lock to make that input <b>1</b>. Leave it out for <b>0</b>. Click a key in a lock to take it out.</div>';
+      html += '<div class="actions"><button class="btn" id="testBtn"' + (over ? " disabled" : "") + ">🔑 Turn the keys (" + (3 - tries) + " tries left)</button></div>";
       $("stage").innerHTML = html;
-      $("stage").querySelectorAll(".wire button").forEach(function (b) {
-        b.onclick = function () { var i = +b.getAttribute("data-i"); nots[i] = !nots[i]; draw(); };
+      wire();
+    }
+    function place(i, holeIdx) {
+      if (over) return;
+      held = null;
+      if (holeIdx !== i) {
+        draw();
+        $("feedback").className = "feedback bad";
+        $("feedback").innerHTML = "That key doesn’t fit the " + KEYS[holeIdx].name.toLowerCase() + " lock. Match the colours!";
+        return;
+      }
+      inLock[i] = true; $("feedback").innerHTML = ""; draw();
+    }
+    function inside(h, x, y) { var r = h.getBoundingClientRect(); return x > r.left && x < r.right && y > r.top && y < r.bottom; }
+    function wire() {
+      var st = $("stage");
+      st.querySelectorAll(".hole").forEach(function (h) {
+        h.onclick = function () {
+          if (over) return;
+          var i = +h.getAttribute("data-i");
+          if (inLock[i]) { inLock[i] = false; draw(); } else if (held !== null) place(held, i);
+        };
+      });
+      st.querySelectorAll("button.key").forEach(function (b) {
+        var i = +b.getAttribute("data-i"), dragged = false;
+        b.onclick = function () { if (over || dragged) { dragged = false; return; } held = held === i ? null : i; draw(); };
+        b.onpointerdown = function (e) {
+          if (over || e.button > 0) return;
+          var ghost = b.cloneNode(true), moved = false, sx = e.clientX, sy = e.clientY;
+          ghost.classList.add("dragging");
+          function mv(ev) {
+            if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 6) return;
+            if (!moved) { moved = true; document.body.appendChild(ghost); }
+            ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px";
+            st.querySelectorAll(".hole").forEach(function (h) { h.classList.toggle("hover", inside(h, ev.clientX, ev.clientY)); });
+          }
+          function up(ev) {
+            document.removeEventListener("pointermove", mv); document.removeEventListener("pointerup", up);
+            if (!moved) return;                 // a plain click: onclick picks the key up
+            ghost.remove(); dragged = true;     // swallow the click that follows a drag
+            var hit = null;
+            st.querySelectorAll(".hole").forEach(function (h) { if (inside(h, ev.clientX, ev.clientY)) hit = +h.getAttribute("data-i"); });
+            if (hit !== null) place(i, hit); else draw();
+          }
+          document.addEventListener("pointermove", mv); document.addEventListener("pointerup", up);
+        };
       });
       $("testBtn").onclick = test;
     }
-    function table(opens) {
-      var html = ttHead(3) + '<th class="out">Open</th></tr>';
-      rows(3).forEach(function (r, i) { html += "<tr>" + r.map(function (v) { return "<td>" + v + "</td>"; }).join("") + '<td class="cell ' + (opens[i] ? "lit" : "") + '">' + opens[i] + "</td></tr>"; });
-      return html + "</table>";
-    }
     function test() {
+      if (over) return;
       tries++;
-      var opens = rows(3).map(function (r) { return r.every(function (v, i) { return (nots[i] ? 1 - v : v) === 1; }) ? 1 : 0; });
-      var ok = opens[Q.code[0] * 4 + Q.code[1] * 2 + Q.code[2]] === 1;
-      if (ok || tries >= 3) {
-        $("stage").querySelectorAll(".wire button").forEach(function (b) { b.disabled = true; });
-        $("testBtn").disabled = true;
-        $("lockTable").innerHTML = table(opens);
-        if (ok) { var pts = [4, 3, 2][tries - 1]; fb(true, "🔓 Unlocked on try " + tries + "! +" + pts, "The switches that must be 0 go through NOT."); done(pts); }
-        else {
-          var right = names.map(function (n, i) { return Q.code[i] ? n : "NOT " + n; }).join(" AND ");
-          fb(false, "🔒 Out of tries. +0", "Answer: Open = " + right + ". A switch that must be 0 goes through NOT."); done(0);
-        }
+      var ok = inLock.every(function (x, i) { return (x ? 1 : 0) === code[i]; });
+      if (ok) {
+        over = true; draw();
+        var pts = [4, 3, 2][tries - 1];
+        fb(true, "🔓 Unlocked on try " + tries + "! +" + pts, "No NOT on the wire: that key goes IN (1). NOT on the wire: leave that key OUT (0).");
+        done(pts);
+      } else if (tries >= 3) {
+        over = true; inLock = code.map(function (v) { return v === 1; }); draw();
+        var ins = KEYS.filter(function (k, i) { return code[i]; }).map(function (k) { return k.name; });
+        fb(false, "🔒 Out of tries. +0", "Code " + code.join(" ") + ": " + (ins.length ? ins.join(" + ") + " key" + (ins.length > 1 ? "s" : "") + " in" : "no keys in") +
+          ". A wire with NOT needs 0, so that key stays OUT.");
+        done(0);
       } else {
         draw();
-        $("lockTable").innerHTML = table(opens);
-        fb(false, "🔒 Still locked for " + Q.code.join(" ") + ". Try again!", "The green row is the code your lock opens for now.");
+        fb(false, "🔒 Still locked! " + (3 - tries) + " tr" + (3 - tries === 1 ? "y" : "ies") + " left.", "Hint: NOT flips. A wire with NOT needs a 0 to send a 1 into AND.");
       }
     }
     draw();
