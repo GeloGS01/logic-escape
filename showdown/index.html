@@ -140,8 +140,7 @@
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
     <p><button id="startBtn" class="btn amber">Start</button></p>
     <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
-    <div class="cols"><div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineStart"></table></div>
-      <div class="box"><h3>💻 Best on this iMac</h3><table id="hofStart"></table></div></div>
+    <div class="cols"><div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineStart"></table></div></div>
   </section>
 
   <section id="gameView" class="hidden">
@@ -164,7 +163,6 @@
     <div class="cols">
       <div class="box"><h3>This game</h3><table id="winTable"></table></div>
       <div class="box"><h3>🌐 Top 10 · all ICT 7 classes</h3><table id="onlineWin"></table></div>
-      <div class="box"><h3>💻 Best on this iMac</h3><table id="hofWin"></table></div>
     </div>
     <p id="winStamp" style="font-size:16px;color:var(--muted)"></p>
   </section>
@@ -358,13 +356,10 @@
   }
 
   // ---------- storage ----------
-  var KEY = "logicShowdown.v2", HOF = "logicShowdown.hof";
+  var KEY = "logicShowdown.v2";
   var S = null;
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
-  function hofGet() { try { return JSON.parse(localStorage.getItem(HOF) || "[]"); } catch (e) { return []; } }
-  function hofAdd(entry) { var h = hofGet(); h.push(entry); h.sort(function (a, b) { return b.score - a.score || a.mins - b.mins; }); h = h.slice(0, 50);
-    try { localStorage.setItem(HOF, JSON.stringify(h)); } catch (e) {} return h; }
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
@@ -700,7 +695,7 @@
       $("winBest").textContent = "Test game: not sent to any board.";
       $("winSent").textContent = "";
       $("winTable").innerHTML = ROUNDS.map(function (r) { return "<tr><td>" + r.name + '</td><td class="n">' + (S.points[r.key].reduce(function (a, b) { return a + (b || 0); }, 0) + S.bonus[r.key].reduce(function (a, b) { return a + (b || 0); }, 0)) + "</td></tr>"; }).join("");
-      $("hofWin").innerHTML = ""; loadOnline("onlineWin");
+      loadOnline("onlineWin");
       $("winStamp").textContent = "Click “Play again” for a new test game.";
       return;
     }
@@ -708,7 +703,6 @@
       var prevBest = S.best || 0;
       S.best = Math.max(prevBest, sc); S.newBest = sc > prevBest; S.logged = true;
       S.id = S.seed + "-" + S.run;
-      hofAdd({ id: S.id, nick: S.nick, cls: S.cls, score: sc, mins: mins, when: S.end });
       save();
     }
     updateScore();
@@ -719,9 +713,6 @@
       var got = S.points[r.key].reduce(function (a, b) { return a + (b || 0); }, 0) + S.bonus[r.key].reduce(function (a, b) { return a + (b || 0); }, 0);
       return "<tr><td>" + r.name + '</td><td class="n">' + got + "</td></tr>"; }).join("");
     $("winTable").innerHTML = rowsHtml + '<tr><td>🔥 Streak bonus</td><td class="n">' + (S.streakPts || 0) + "</td></tr>";
-    var h = hofGet();
-    $("hofWin").innerHTML = h.length ? h.slice(0, 10).map(function (e, i) {
-      return '<tr class="' + (e.id === S.id ? "me" : "") + '"><td>' + medal(i) + "</td><td>" + esc(e.nick) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("") : "";
     var t = new Date(S.end);
     $("winStamp").textContent = "Time: " + mins + " min  ·  Finished at " + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2) + "  ·  Max possible: " + MAX + " + streak bonuses";
     if (!S.sent) sendScore(sc, mins);
@@ -794,10 +785,6 @@
     if (!S || confirm("New player? This game will end (the Hall of Fame stays).")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); }
   };
 
-  var h0 = hofGet();
-  $("hofStart").innerHTML = h0.length ? h0.slice(0, 10).map(function (e, i) {
-    return "<tr><td>" + medal(i) + "</td><td>" + esc(e.nick) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("")
-    : '<tr><td style="color:var(--muted)">No scores yet. Be the first!</td></tr>';
 
   loadOnline("onlineStart");
 
