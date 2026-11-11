@@ -248,7 +248,7 @@
       $("stage").innerHTML = h;
       $("stage").querySelectorAll(".choices button").forEach(function (b) { b.onclick = function () {
         guess = b.getAttribute("data-c"); var ok = (guess === "SAME") === P.same; pts.g = ok ? 1 : 0; stage = 2; draw();
-        fb(true, (ok ? "Good guess? " : "Hmm, are you sure? ") + "Now prove it!", "You’ll see if your guess was right after the table.");
+        fb(true, "Guess saved: " + guess + ". Now prove it!", "You’ll see if your guess was right after the table.");
         $("feedback").className = "feedback";
       }; });
       $("stage").querySelectorAll("td.cell").forEach(function (c) { c.onclick = function () {
