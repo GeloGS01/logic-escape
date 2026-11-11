@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Same or Different?</title>
+<style>
+  :root {
+    --navy: #0B1D2E; --ink: #0F172A; --card: #EEF2F7; --line: #CBD5E1; --muted: #64748B;
+    --amber: #F59E0B; --amber-soft: #FEF3C7; --green: #22C55E; --green-dark: #15803D; --green-soft: #DCFCE7;
+    --red: #DC2626; --red-soft: #FEE2E2; --white: #FFFFFF; --blue: #2563EB; --violet: #7C3AED;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--white); color: var(--ink); font: 18px/1.4 "Segoe UI", -apple-system, Calibri, Arial, sans-serif; }
+  .school { background: var(--white); border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .school img { height: 64px; width: auto; display: block; }
+  .school .acs { max-width: 70%; object-fit: contain; }
+  header { background: var(--navy); color: var(--white); padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 28px; }
+  header .kicker { color: var(--amber); font-weight: 700; font-size: 15px; }
+  header .score { margin-left: auto; text-align: right; }
+  header .score b { font: 800 30px "Courier New", monospace; color: var(--amber); display: block; }
+  header .score span { color: #94A3B8; font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px 16px 32px; }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
+  .dots span { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); color: #94A3B8; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .dots span.done { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
+  .dots span.here { background: var(--ink); border-color: var(--ink); color: var(--white); }
+  .pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; margin: 6px 0 14px; }
+  .eq { background: var(--card); border-radius: 14px; padding: 16px; text-align: center; font: 800 24px "Courier New", monospace; }
+  .eq small { display: block; font: 700 14px "Segoe UI", Arial, sans-serif; color: var(--muted); margin-bottom: 4px; }
+  .eq.left { border-left: 8px solid var(--blue); } .eq.right { border-left: 8px solid var(--violet); }
+  .vs { font-weight: 800; color: var(--muted); }
+  .step { background: var(--amber-soft); border-radius: 12px; padding: 10px 16px; font-weight: 700; color: #92400E; margin: 10px 0; }
+  .choices { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 8px 0; }
+  .choices button { min-width: 200px; font: inherit; font-size: 26px; font-weight: 800; padding: 14px 22px; border-radius: 14px; border: 3px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer; }
+  .choices button:hover:not([disabled]) { border-color: var(--amber); background: var(--amber-soft); }
+  .choices button.picked { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .choices button[disabled] { cursor: default; }
+  table.tt { border-collapse: collapse; margin: 6px auto; font: 700 21px "Courier New", monospace; }
+  table.tt th, table.tt td { border: 2px solid var(--line); padding: 5px 16px; text-align: center; }
+  table.tt th { background: var(--ink); color: var(--white); }
+  table.tt th.l { background: var(--blue); } table.tt th.r { background: var(--violet); }
+  table.tt td.cell { background: var(--amber-soft); cursor: pointer; min-width: 74px; user-select: none; }
+  table.tt td.right { background: var(--green-soft); color: var(--green-dark); }
+  table.tt td.wrong { background: var(--red-soft); color: var(--red); }
+  table.tt tr.pick { cursor: pointer; }
+  table.tt tr.pick:hover td { outline: 3px solid var(--amber); outline-offset: -3px; }
+  table.tt tr.diffrow td { background: #FDE68A !important; }
+  .feedback { min-height: 56px; margin-top: 12px; font-size: 21px; font-weight: 700; text-align: center; }
+  .feedback.good { color: var(--green-dark); } .feedback.bad { color: var(--red); }
+  .feedback .why { display: block; font-weight: 500; color: var(--muted); font-size: 18px; margin-top: 4px; }
+  .actions { text-align: center; margin-top: 10px; }
+  .btn { background: var(--ink); color: var(--white); border: 0; font: inherit; font-weight: 700; padding: 12px 26px; border-radius: 10px; cursor: pointer; font-size: 20px; }
+  .btn.amber { background: var(--amber); color: var(--ink); }
+  .btn[disabled] { opacity: .4; cursor: default; }
+  .hidden { display: none !important; }
+  .start, .win { text-align: center; padding: 20px 10px; }
+  .start input { font-family: inherit; font-size: 32px; font-weight: 700; padding: 14px 22px; border: 3px solid var(--line); border-radius: 14px; width: 440px; max-width: 100%; text-align: center; }
+  .start input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  .rules { display: inline-block; text-align: left; background: var(--card); border-radius: 14px; padding: 12px 24px; margin: 8px 0 16px; }
+  .win h2 { font-size: 44px; margin: 4px 0; color: var(--green-dark); }
+  .win .big { font: 800 60px "Courier New", monospace; margin: 4px 0; }
+  .win table { margin: 10px auto; border-collapse: collapse; font-size: 18px; }
+  .win td { padding: 5px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+  .win td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
+  footer { color: var(--muted); font-size: 14px; text-align: center; margin-top: 24px; }
+  footer a { color: var(--muted); }
+  @media (max-width: 700px) { .pair { grid-template-columns: 1fr; } .vs { text-align: center; } .school img { height: 40px; } }
+</style>
+</head>
+<body>
+<div class="school">
+  <img class="acs" src="../assets/acs-header.png" alt="Assumption College Sriracha">
+  <img src="../assets/mlp-logo.png" alt="Modern Language Program">
+</div>
+<header>
+  <div><div class="kicker">ICT 9 · Logic Gates</div><h1>Same or Different?</h1></div>
+  <div class="score"><b id="scoreBox"></b><span id="bestBox"></span></div>
+</header>
+<main>
+  <section id="startView" class="start">
+    <p style="font-size:22px">10 pairs of circuits. Do they always give the same answer?</p>
+    <div class="rules">
+      <b>1. Guess:</b> SAME or DIFFERENT? <span style="color:var(--muted)">(1 point)</span><br>
+      <b>2. Prove it:</b> fill in BOTH output columns of the truth table <span style="color:var(--muted)">(2 points)</span><br>
+      <b>3. Different?</b> Click the row that shows it <span style="color:var(--muted)">(1 point)</span>
+    </div>
+    <p><input id="nick" maxlength="16" placeholder="Your nickname" autocomplete="off"></p>
+    <p><button id="startBtn" class="btn amber" style="font-size:26px;padding:14px 40px">Start</button></p>
+    <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
+  </section>
+
+  <section id="gameView" class="hidden">
+    <div class="dots" id="dots"></div>
+    <div class="pair">
+      <div class="eq left"><small>LEFT circuit</small><span id="eqL"></span></div>
+      <div class="vs">vs</div>
+      <div class="eq right"><small>RIGHT circuit</small><span id="eqR"></span></div>
+    </div>
+    <div id="stage"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="actions"><button id="nextBtn" class="btn amber hidden">Next pair →</button></div>
+  </section>
+
+  <section id="winView" class="win hidden">
+    <div style="font-size:54px">🧠</div>
+    <h2>ALL 10 PAIRS DONE!</h2>
+    <div style="font-size:26px;font-weight:800" id="winWho"></div>
+    <div class="big" id="winScore"></div>
+    <div style="font-size:22px;font-weight:800;color:var(--violet)" id="winBest"></div>
+    <table id="winTable"></table>
+    <p><button id="againBtn" class="btn amber">▶ Play again (new pairs)</button></p>
+    <p style="color:var(--muted)">Raise your hand and show your teacher this screen.</p>
+  </section>
+  <footer>Your progress is saved on this computer. <a href="#" id="resetLink">New player</a></footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var rnd = Math.random;
+  function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- tiny logic parser: NOT > AND/NAND > XOR > OR/NOR, brackets, variables A B C ----------
+  function parse(src) {
+    var toks = src.replace(/\(/g, " ( ").replace(/\)/g, " ) ").trim().split(/\s+/), i = 0;
+    function peek() { return toks[i]; }
+    function unary() {
+      var t = toks[i++];
+      if (t === "NOT") { var a = unary(); return function (v) { return 1 - a(v); }; }
+      if (t === "(") { var e = orExp(); i++; return e; }
+      return function (v) { return v[t]; };
+    }
+    function andExp() {
+      var a = unary();
+      while (peek() === "AND" || peek() === "NAND") {
+        var op = toks[i++], b = unary();
+        a = (function (x, y, o) { return function (v) { var r = x(v) & y(v); return o === "NAND" ? 1 - r : r; }; })(a, b, op);
+      }
+      return a;
+    }
+    function xorExp() {
+      var a = andExp();
+      while (peek() === "XOR") { i++; var b = andExp(); a = (function (x, y) { return function (v) { return x(v) ^ y(v); }; })(a, b); }
+      return a;
+    }
+    function orExp() {
+      var a = xorExp();
+      while (peek() === "OR" || peek() === "NOR") {
+        var op = toks[i++], b = xorExp();
+        a = (function (x, y, o) { return function (v) { var r = x(v) | y(v); return o === "NOR" ? 1 - r : r; }; })(a, b, op);
+      }
+      return a;
+    }
+    return orExp();
+  }
+  function vars(s) { return /\bC\b/.test(s) ? ["A", "B", "C"] : ["A", "B"]; }
+  function rows(n) { var out = []; for (var i = 0; i < (1 << n); i++) { var r = []; for (var k = n - 1; k >= 0; k--) r.push(i >> k & 1); out.push(r); } return out; }
+
+  // ---------- the pairs (SAME / DIFFERENT is worked out by the page, never typed by hand) ----------
+  var PAIRS = [
+    ["NOT (A OR B)", "NOT A AND NOT B", "De Morgan rule 2: break the bar, change the sign."],
+    ["NOT (A AND B)", "NOT A OR NOT B", "De Morgan rule 1."],
+    ["NOT (A AND B)", "NOT A AND NOT B", "Careful! De Morgan changes AND to OR."],
+    ["NOT (A OR B)", "NOT A OR NOT B", "Careful! De Morgan changes OR to AND."],
+    ["A AND B", "B AND A", "Order doesn’t matter for AND."],
+    ["A OR B", "A XOR B", "OR is 1 when both are 1, XOR is not."],
+    ["A XOR B", "(A OR B) AND NOT (A AND B)", "This is how XOR is built: one or the other, but not both."],
+    ["NOT (NOT A)", "A", "Two NOTs cancel out."],
+    ["A NAND A", "NOT A", "A NAND with both inputs joined is a NOT."],
+    ["A NOR A", "NOT A", "A NOR with both inputs joined is a NOT too."],
+    ["A NAND B", "A NOR B", "NAND is 0 only for 1 1, NOR is 1 only for 0 0."],
+    ["(A NAND B) NAND (A NAND B)", "A AND B", "NAND then NOT (a NAND with joined inputs) = AND."],
+    ["A OR (A AND B)", "A", "B never changes the answer."],
+    ["A AND (A OR B)", "A", "B never changes the answer."],
+    ["A AND NOT B", "NOT A AND B", "One needs A = 1, the other needs B = 1."],
+    ["NOT (A XOR B)", "A XOR NOT B", "Flipping one input of XOR flips its answer."],
+    ["(A AND B) OR C", "A AND (B OR C)", "The brackets moved, and that matters."],
+    ["(A OR B) AND C", "A OR (B AND C)", "The brackets moved, and that matters."],
+    ["A AND (B OR C)", "(A AND B) OR (A AND C)", "Like 2 × (3 + 4) = 2×3 + 2×4."],
+    ["A OR (B AND C)", "(A OR B) AND (A OR C)", "A strange one, but it is always true!"],
+    ["NOT (A AND B AND C)", "NOT A OR NOT B OR NOT C", "De Morgan works for 3 inputs too."],
+    ["(A XOR B) XOR C", "A XOR (B XOR C)", "XOR chains can be grouped any way."],
+    ["A AND B AND C", "(A AND B) OR C", "Row 0 0 1 shows it."],
+    ["NOT A OR B", "NOT (A OR B)", "The NOT covers different things."]
+  ];
+  function analyse(p) {
+    var L = parse(p[0]), R = parse(p[1]), vs = vars(p[0] + " " + p[1]);
+    var rs = rows(vs.length).map(function (r) { var v = {}; vs.forEach(function (n, i) { v[n] = r[i]; }); return { r: r, l: L(v), rr: R(v) }; });
+    var same = rs.every(function (x) { return x.l === x.rr; });
+    return { left: p[0], right: p[1], why: p[2], vars: vs, rows: rs, same: same };
+  }
+  var ALL = PAIRS.map(analyse);
+  var N = 10;
+  function buildGame() {
+    var two = function (x) { return x.vars.length === 2; };
+    var sameP = shuffle(ALL.filter(function (x) { return x.same; })), diffP = shuffle(ALL.filter(function (x) { return !x.same; }));
+    var pick = sameP.slice(0, 5).concat(diffP.slice(0, 5));
+    // easier 2-input pairs first, 3-input pairs at the end
+    return shuffle(pick.filter(two)).concat(shuffle(pick.filter(function (x) { return !two(x); }))).map(function (x) { return ALL.indexOf(x); });
+  }
+
+  // ---------- state ----------
+  var KEY = "sameDiff.v1", S = null;
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
+  function total() { return S.pts.reduce(function (a, p) { return a + (p ? p.g + p.p + p.r : 0); }, 0); }
+  function maxFor(P) { return P.same ? 3 : 4; }
+  function maxAll() { return S.order.reduce(function (a, k) { return a + maxFor(ALL[k]); }, 0); }
+  function head() { $("scoreBox").textContent = S ? total() + " pts" : ""; $("bestBox").textContent = S && S.best ? "High score: " + S.best : ""; }
+  function show(v) { ["startView", "gameView", "winView"].forEach(function (x) { $(x).classList.toggle("hidden", x !== v); }); }
+  function fb(ok, t, why) { $("feedback").className = "feedback " + (ok ? "good" : "bad"); $("feedback").innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
+
+  function render() {
+    head();
+    if (S.i >= N) return win();
+    show("gameView");
+    $("dots").innerHTML = S.order.map(function (k, i) { return '<span class="' + (i < S.i ? "done" : i === S.i ? "here" : "") + '">' + (i + 1) + "</span>"; }).join("");
+    var P = ALL[S.order[S.i]];
+    $("eqL").textContent = P.left; $("eqR").textContent = P.right;
+    $("feedback").className = "feedback"; $("feedback").innerHTML = "";
+    $("nextBtn").classList.add("hidden");
+    var pts = { g: 0, p: 0, r: 0 }, guess = null, vals = P.rows.map(function () { return [null, null]; }), stage = 1;
+
+    function draw() {
+      var h = '<div class="step">Step 1 · Will they ALWAYS give the same answer?</div><div class="choices">' +
+        ["SAME", "DIFFERENT"].map(function (c) { return '<button data-c="' + c + '" class="' + (guess === c ? "picked" : "") + '"' + (guess ? " disabled" : "") + ">" + (c === "SAME" ? "🟰 SAME" : "≠ DIFFERENT") + "</button>"; }).join("") + "</div>";
+      if (stage >= 2) {
+        h += '<div class="step">Step 2 · Prove it: click each ? to set it to 0 or 1, then press Check.</div>';
+        h += '<table class="tt"><tr>' + P.vars.map(function (v) { return "<th>" + v + "</th>"; }).join("") + '<th class="l">LEFT</th><th class="r">RIGHT</th></tr>';
+        P.rows.forEach(function (x, i) {
+          var cls = stage >= 4 && x.l !== x.rr ? "diffrow" : "", pk = stage === 3 ? " pick" : "";
+          h += '<tr class="' + cls + pk + '" data-row="' + i + '">' + x.r.map(function (b) { return "<td>" + b + "</td>"; }).join("");
+          [0, 1].forEach(function (s) {
+            var want = s ? x.rr : x.l, v = vals[i][s];
+            if (stage === 2) h += '<td class="cell" data-i="' + i + '" data-s="' + s + '">' + (v === null ? "?" : v) + "</td>";
+            else h += '<td class="' + (v === want ? "right" : "wrong") + '">' + (v === want ? v : v + "→" + want) + "</td>";
+          });
+          h += "</tr>";
+        });
+        h += "</table>";
+        if (stage === 2) h += '<div class="actions"><button class="btn" id="checkBtn"' + (vals.every(function (r) { return r[0] !== null && r[1] !== null; }) ? "" : " disabled") + ">Check my table</button></div>";
+        if (stage === 3) h += '<div class="step">Step 3 · They are DIFFERENT. Click a row that shows it.</div>';
+      }
+      $("stage").innerHTML = h;
+      $("stage").querySelectorAll(".choices button").forEach(function (b) { b.onclick = function () {
+        guess = b.getAttribute("data-c"); var ok = (guess === "SAME") === P.same; pts.g = ok ? 1 : 0; stage = 2; draw();
+        fb(true, (ok ? "Good guess? " : "Hmm, are you sure? ") + "Now prove it!", "You’ll see if your guess was right after the table.");
+        $("feedback").className = "feedback";
+      }; });
+      $("stage").querySelectorAll("td.cell").forEach(function (c) { c.onclick = function () {
+        var i = +c.getAttribute("data-i"), s = +c.getAttribute("data-s"); vals[i][s] = vals[i][s] === 1 ? 0 : 1; draw();
+      }; });
+      var ck = $("checkBtn");
+      if (ck) ck.onclick = function () {
+        var cells = P.rows.length * 2, right = 0;
+        P.rows.forEach(function (x, i) { if (vals[i][0] === x.l) right++; if (vals[i][1] === x.rr) right++; });
+        pts.p = right === cells ? 2 : (right >= cells * 0.75 ? 1 : 0);
+        var guessOk = pts.g === 1;
+        var msg = (P.same ? "They are the SAME" : "They are DIFFERENT") + ". Your guess: " + (guessOk ? "✔ +1" : "✘ +0") + ". Table: " + right + "/" + cells + " cells right, +" + pts.p + ".";
+        if (P.same) { stage = 4; draw(); fb(guessOk && pts.p === 2, msg, "Every row matches, so they are the same circuit. " + P.why); finish(); }
+        else { stage = 3; draw(); fb(guessOk, msg, "Now find the proof row."); wireRows(); }
+      };
+    }
+    function wireRows() {
+      $("stage").querySelectorAll("tr.pick").forEach(function (tr) { tr.onclick = function () {
+        var i = +tr.getAttribute("data-row"), x = P.rows[i];
+        pts.r = x.l !== x.rr ? 1 : 0;
+        var dr = P.rows.filter(function (y) { return y.l !== y.rr; }).map(function (y) { return y.r.join(" "); });
+        stage = 4; draw();
+        fb(pts.r === 1, pts.r ? "✔ Row " + x.r.join(" ") + " proves it! +1" : "✘ Row " + x.r.join(" ") + " gives the same answer on both sides.",
+          "The highlighted row" + (dr.length > 1 ? "s show" : " shows") + " the difference: " + dr.join(", ") + ". " + P.why);
+        finish();
+      }; });
+    }
+    function finish() {
+      S.pts[S.i] = pts; S.answered = true; save(); head();
+      $("nextBtn").textContent = S.i + 1 < N ? "Next pair →" : "See my score →";
+      $("nextBtn").classList.remove("hidden");
+    }
+    draw();
+  }
+  function next() { S.i++; S.answered = false; save(); render(); }
+
+  function win() {
+    show("winView");
+    var sc = total(), mx = maxAll();
+    if (!S.logged) { S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; save(); }
+    head();
+    $("winWho").textContent = S.nick + " · Game " + S.run;
+    $("winScore").textContent = sc + " / " + mx;
+    $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
+    var g = 0, p = 0, r = 0, sameRight = 0, diffRight = 0;
+    S.pts.forEach(function (x, i) { g += x.g; p += x.p; r += x.r; if (x.g) { if (ALL[S.order[i]].same) sameRight++; else diffRight++; } });
+    $("winTable").innerHTML = "<tr><td>Right guesses (SAME / DIFFERENT)</td><td class='n'>" + g + " / 10</td></tr>" +
+      "<tr><td>Truth-table proofs</td><td class='n'>" + p + " / 20</td></tr>" +
+      "<tr><td>Proof rows found</td><td class='n'>" + r + " / 5</td></tr>";
+  }
+
+  function newGame(nick, run, best) {
+    var seed = Math.floor(Math.random() * 1e9); rnd = mulberry32(seed);
+    S = { nick: nick, run: run, best: best || 0, seed: seed, order: buildGame(), i: 0, pts: [], answered: false };
+    save(); render();
+  }
+  $("startBtn").onclick = function () {
+    var nick = $("nick").value.trim();
+    if (!nick) { $("startMsg").textContent = "Type your nickname first."; return; }
+    newGame(nick, 1, 0);
+  };
+  $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
+  $("nextBtn").onclick = next;
+  $("againBtn").onclick = function () { newGame(S.nick, (S.run || 1) + 1, S.best); };
+  $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
+
+  S = load();
+  if (S && S.order) { if (S.answered) next(); else render(); } else { S = null; show("startView"); }
+  window.__SDF = { state: function () { return S; }, ALL: ALL };
+})();
+</script>
+</body>
+</html>
