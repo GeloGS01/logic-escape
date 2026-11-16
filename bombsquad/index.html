@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Squad</title>
+<style>
+  :root {
+    --navy: #0B1D2E; --ink: #0F172A; --card: #EEF2F7; --line: #CBD5E1; --muted: #64748B;
+    --amber: #F59E0B; --amber-soft: #FEF3C7; --green: #22C55E; --green-dark: #15803D; --green-soft: #DCFCE7;
+    --red: #DC2626; --red-soft: #FEE2E2; --white: #FFFFFF; --violet: #7C3AED;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--white); color: var(--ink); font: 18px/1.4 -apple-system, "Segoe UI", Calibri, Arial, sans-serif; }
+  .school { background: var(--white); border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .school img { height: 64px; width: auto; display: block; }
+  .school .acs { max-width: 70%; object-fit: contain; }
+  header { background: var(--navy); color: var(--white); padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 28px; }
+  header .kicker { color: var(--amber); font-weight: 700; font-size: 15px; }
+  header .credit { color: #94A3B8; font-size: 14px; margin-top: 2px; }
+  header .credit b { color: #CBD5E1; font-weight: 600; }
+  header .score { margin-left: auto; text-align: right; }
+  header .score b { font: 800 30px "Courier New", monospace; color: var(--amber); display: block; }
+  header .score span { color: #94A3B8; font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px 16px 32px; }
+  .dots { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .dots span { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 17px; border: 2px solid var(--line); background: var(--card); color: #94A3B8; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .dots span.done { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
+  .dots span.here { background: var(--ink); border-color: var(--ink); color: var(--white); }
+  .panel { background: var(--amber-soft); border-radius: 14px; padding: 14px 20px; }
+  .panel h2 { margin: 0 0 4px; font-size: 25px; }
+  .panel .how { color: #92400E; font-weight: 600; }
+  .lab { display: grid; grid-template-columns: 1fr 260px; gap: 18px; margin-top: 14px; align-items: start; }
+  .bench { background: var(--card); border-radius: 14px; padding: 12px; text-align: center; }
+  .bench svg { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; }
+  .switches { display: flex; gap: 14px; justify-content: center; margin-top: 8px; }
+  .sw { font: inherit; font-size: 22px; font-weight: 800; padding: 10px 22px; border-radius: 14px; border: 3px solid var(--line); background: var(--white); cursor: pointer; min-width: 140px; }
+  .sw.on { background: var(--green); border-color: var(--green-dark); color: var(--white); }
+  .side h3 { margin: 0 0 6px; font-size: 17px; text-align: center; }
+  table.tt { border-collapse: collapse; margin: 0 auto; font: 700 22px "Courier New", monospace; }
+  table.tt th, table.tt td { border: 2px solid var(--line); padding: 5px 18px; text-align: center; }
+  table.tt th { background: var(--ink); color: var(--white); }
+  table.tt th.out { background: var(--amber); color: var(--ink); }
+  table.tt td.out { background: var(--amber-soft); min-width: 70px; }
+  table.tt tr.now td { outline: 3px solid var(--amber); outline-offset: -3px; }
+  .tested { text-align: center; color: var(--muted); font-weight: 700; margin-top: 8px; }
+  .choices { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .choices button { min-width: 120px; font: inherit; font-size: 23px; font-weight: 800; padding: 12px 20px; border-radius: 14px; border: 3px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer; }
+  .choices button:hover:not([disabled]) { border-color: var(--amber); background: var(--amber-soft); }
+  .choices button.right { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
+  .choices button.wrong { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+  .choices button[disabled] { cursor: default; opacity: .9; }
+  .q { text-align: center; font-size: 22px; font-weight: 800; margin-top: 14px; }
+  .feedback { min-height: 56px; margin-top: 12px; font-size: 21px; font-weight: 700; text-align: center; }
+  .feedback.good { color: var(--green-dark); } .feedback.bad { color: var(--red); }
+  .feedback .why { display: block; font-weight: 500; color: var(--muted); font-size: 18px; margin-top: 4px; }
+  .actions { text-align: center; margin-top: 10px; }
+  .btn { background: var(--ink); color: var(--white); border: 0; font: inherit; font-weight: 700; padding: 12px 26px; border-radius: 10px; cursor: pointer; font-size: 20px; }
+  .btn.amber { background: var(--amber); color: var(--ink); }
+  .hidden { display: none !important; }
+  .start, .win { text-align: center; padding: 20px 10px; }
+  .start input { font-family: inherit; font-size: 32px; font-weight: 700; padding: 14px 22px; border: 3px solid var(--line); border-radius: 14px; width: 440px; max-width: 100%; text-align: center; }
+  .start input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  .classes { display: flex; gap: 12px; justify-content: center; margin: 14px 0; }
+  .classes button { font: inherit; font-size: 26px; font-weight: 800; padding: 12px 26px; border-radius: 12px; border: 3px solid var(--line); background: var(--white); cursor: pointer; }
+  .classes button.on { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .rules { display: inline-block; text-align: left; background: var(--card); border-radius: 14px; padding: 12px 24px; margin: 8px 0 12px; }
+  .win h2 { font-size: 44px; margin: 4px 0; color: var(--green-dark); }
+  .win .big { font: 800 60px "Courier New", monospace; margin: 4px 0; }
+  .win table { margin: 10px auto; border-collapse: collapse; font-size: 18px; }
+  .win td { padding: 5px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+  .win td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
+  footer { color: var(--muted); font-size: 14px; text-align: center; margin-top: 24px; }
+  footer a { color: var(--muted); }
+  @media (max-width: 820px) { .lab { grid-template-columns: 1fr; } .school img { height: 40px; } }
+  .bombwrap { position: relative; background: var(--card); border-radius: 14px; padding: 8px; overflow: hidden; }
+  .bombwrap svg { display: block; width: 100%; max-width: 760px; height: auto; margin: 0 auto; }
+  .cut { cursor: pointer; }
+  .cut:hover circle { fill: var(--amber); }
+  .lives { font-size: 26px; letter-spacing: 4px; }
+  .timer { font: 800 34px "Courier New", monospace; }
+  .boom { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle, #FDE047 0%, #F97316 35%, #B91C1C 70%, #450A0A 100%); color: #fff; font-weight: 800; animation: flash .5s ease-out; }
+  .boom .big { font-size: 90px; line-height: 1; }
+  .boom .msg { font-size: 34px; text-shadow: 0 3px 0 #000; }
+  .safe { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(22,163,74,.92); color: #fff; font-weight: 800; animation: flash .4s ease-out; }
+  .safe .big { font-size: 80px; line-height: 1; }
+  .safe .msg { font-size: 32px; }
+  @keyframes flash { from { opacity: 0; transform: scale(1.15); } to { opacity: 1; transform: scale(1); } }
+  .shake { animation: shake .45s; }
+  @keyframes shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-12px,6px); } 40% { transform: translate(10px,-8px); } 60% { transform: translate(-8px,4px); } 80% { transform: translate(6px,-4px); } }
+  .statusbar { display: flex; justify-content: space-between; align-items: center; margin: 10px 4px 4px; font-weight: 800; }
+  .box { background: var(--card); border-radius: 14px; padding: 12px 18px; min-width: 300px; display: inline-block; text-align: left; vertical-align: top; }
+  .box h3 { margin: 0 0 8px; font-size: 20px; }
+  .box table { border-collapse: collapse; width: 100%; font-size: 18px; }
+  .box td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .box td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
+  .box tr.me td { background: var(--amber-soft); font-weight: 800; }
+  .box .scroll { max-height: 420px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="school">
+  <img class="acs" src="../assets/acs-header.png" alt="Assumption College Sriracha">
+  <img src="../assets/mlp-logo.png" alt="Modern Language Program">
+</div>
+<header>
+  <div><div class="kicker">ICT 7 · Logic Gates</div><h1>Bomb Squad</h1><div class="credit">Designed by <b>Mr. Angelo de Villa</b></div></div>
+  <div class="score"><b id="scoreBox"></b><span id="bestBox"></span></div>
+</header>
+<main>
+  <section id="startView" class="start">
+    <p style="font-size:22px">💣 10 bombs. Each one is ARMED when its output is <b>1</b>.<br>Cut the right wires to make the output <b>0</b>, in <b>10 seconds</b>.</p>
+    <div class="rules">
+      ✂ <b>Click a scissors</b> to cut that wire: it changes from 1 to 0.<br>
+      💥 <b>Careful:</b> a wrong cut can make it impossible to defuse, and then it explodes!<br>
+      ⏱ <b>Score:</b> 10 points for each bomb + 1 point for every second left. You have 3 ❤️.
+    </div>
+    <p><input id="nick" maxlength="12" placeholder="Your nickname" autocomplete="off"></p>
+    <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
+    <p><button id="startBtn" class="btn amber" style="font-size:26px;padding:14px 40px">Start</button></p>
+    <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
+    <div class="box"><h3>🏆 Top Scores · all ICT 7 classes</h3><div class="scroll"><table id="topStart"></table></div></div>
+  </section>
+
+  <section id="gameView" class="hidden">
+    <div class="dots" id="dots"></div>
+    <div class="statusbar"><span id="bombName"></span><span class="lives" id="livesBox"></span></div>
+    <div class="bombwrap" id="wrap"><div id="svgBox"></div></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="actions"><button id="goBtn" class="btn amber">Start the timer ⏱</button><button id="nextBtn" class="btn amber hidden">Next bomb →</button></div>
+  </section>
+
+  <section id="winView" class="win hidden">
+    <div style="font-size:54px" id="winIcon">🎖️</div>
+    <h2 id="winTitle">BOMB SQUAD COMPLETE!</h2>
+    <div style="font-size:26px;font-weight:800" id="winWho"></div>
+    <div class="big" id="winScore"></div>
+    <div style="font-size:22px;font-weight:800;color:var(--violet)" id="winBest"></div>
+    <div class="sent" id="winTop" style="color:var(--muted);min-height:22px"></div>
+    <p><button id="againBtn" class="btn amber">▶ Play again (new bombs)</button></p>
+    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
+      <div class="box"><h3>This game</h3><table id="winTable"></table></div>
+      <div class="box"><h3>🏆 Top Scores · all ICT 7 classes</h3><div class="scroll"><table id="topWin"></table></div></div>
+    </div>
+  </section>
+  <footer>Your progress is saved on this computer. <a href="#" id="resetLink">New player</a></footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var SCORE_URL = "https://script.google.com/macros/s/AKfycbwGfGhDRjyTZJ2Y2Rjv7kMhflGVrs6RNkuuBfHDxO11dbH-tpLHXlbH0Rnx060KyFDJ/exec";
+  var BOARD = "ict7-bomb";
+  var N = 10, SECS = 10, LIVES = 3;
+  var rnd = Math.random;
+  function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function gate(g, a, b) { var r = g === "AND" || g === "NAND" ? a & b : g === "XOR" ? a ^ b : a | b; return g === "NAND" || g === "NOR" ? 1 - r : r; }
+
+  // ---------- bombs ----------
+  // single: A g B.  double: (A g1 B) g2 C.  init = starting value of each wire (0 = a dead wire, already 0).
+  function outOf(b, cut) {
+    var v = b.init.map(function (x, i) { return cut[i] ? 0 : x; });
+    return b.kind === "single" ? gate(b.g1, v[0], v[1]) : gate(b.g2, gate(b.g1, v[0], v[1]), v[2]);
+  }
+  function subsets(n) { var o = []; for (var m = 0; m < (1 << n); m++) o.push(Array.from({ length: n }, function (_, i) { return !!(m >> i & 1); })); return o; }
+  // can this bomb still be defused, given the wires already cut?
+  function canDefuse(b, cut) {
+    return subsets(b.init.length).some(function (s) {
+      for (var i = 0; i < s.length; i++) { if (cut[i] && !s[i]) return false; if (s[i] && !b.init[i]) return false; }
+      return outOf(b, s) === 0;
+    });
+  }
+  function hasTrap(b) {   // a single wrong cut that explodes it
+    return b.init.some(function (x, i) { if (!x) return false; var c = b.init.map(function (_, j) { return j === i; }); return outOf(b, c) === 1 && !canDefuse(b, c); });
+  }
+  function makeBomb(n) {
+    for (var t = 0; t < 500; t++) {
+      var b;
+      if (n < 3) b = { kind: "single", g1: pick(["AND", "OR", "XOR"]), init: [1, rnd() < 0.7 ? 1 : 0] };
+      else b = { kind: "double", g1: pick(["AND", "OR", "XOR", "NAND", "NOR"]), g2: pick(["AND", "OR", "XOR", "NAND", "NOR"]), init: [1, rnd() < 0.8 ? 1 : 0, rnd() < 0.8 ? 1 : 0] };
+      if (rnd() < 0.5) { var t0 = b.init[0]; b.init[0] = b.init[1]; b.init[1] = t0; }
+      var none = b.init.map(function () { return false; });
+      if (outOf(b, none) !== 1 || !canDefuse(b, none)) continue;
+      if (n >= 3 && !/N/.test(b.g1 + b.g2) && rnd() < 0.7) continue;   // most two-gate bombs use NAND or NOR
+      if (n >= 6 && !hasTrap(b)) continue;                              // later bombs always have a trap wire
+      return b;
+    }
+    return { kind: "single", g1: "AND", init: [1, 1] };
+  }
+
+  // ---------- drawing ----------
+  var NAV = "#0F172A", COLS = ["#DC2626", "#2563EB", "#16A34A"], NAMES = ["A", "B", "C"];
+  function gateBody(g, x, y, h, w) {
+    var isAnd = g === "AND" || g === "NAND", bub = g === "NAND" || g === "NOR", s = "";
+    if (g === "XOR") s += '<path d="M' + (x - 10) + " " + y + " Q" + (x + 14) + " " + (y + h / 2) + " " + (x - 10) + " " + (y + h) + '" fill="none" stroke="' + NAV + '" stroke-width="4"/>';
+    s += isAnd ? '<path d="M' + x + " " + y + " H" + (x + w - h / 2) + " A" + h / 2 + " " + h / 2 + " 0 0 1 " + (x + w - h / 2) + " " + (y + h) + " H" + x + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>'
+      : '<path d="M' + (x - 4) + " " + y + " Q" + (x + 20) + " " + (y + h / 2) + " " + (x - 4) + " " + (y + h) + " Q" + (x + w * .65) + " " + (y + h) + " " + (x + w) + " " + (y + h / 2) + " Q" + (x + w * .65) + " " + y + " " + (x - 4) + " " + y + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>';
+    if (bub) s += '<circle cx="' + (x + w + 7) + '" cy="' + (y + h / 2) + '" r="6" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>';
+    s += '<text x="' + (x + w * .42) + '" y="' + (y + h / 2 + 6) + '" text-anchor="middle" font-size="15" font-weight="800" fill="#B45309" font-family="Arial">' + g + "</text>";
+    return { s: s, out: x + w + (bub ? 13 : 0) };
+  }
+  function draw(b, cut, secs, live) {
+    var v = b.init.map(function (x, i) { return cut[i] ? 0 : x; }), o = outOf(b, cut);
+    var s = '<svg viewBox="0 0 760 260" role="img" aria-label="Bomb circuit">';
+    var ys = b.kind === "single" ? [95, 165] : [60, 125, 205];
+    var ends = b.kind === "single" ? [300, 300] : [250, 250, 420];
+    var pins = b.kind === "single" ? [108, 152] : [72, 112, 190];
+    var wireCol = function (i) { return v[i] ? COLS[i] : "#94A3B8"; };
+    b.init.forEach(function (x, i) {
+      var y = ys[i], col = wireCol(i);
+      s += '<rect x="14" y="' + (y - 16) + '" width="34" height="32" rx="6" fill="' + (b.init[i] ? COLS[i] : "#94A3B8") + '"/><text x="31" y="' + (y + 7) + '" text-anchor="middle" font-size="18" font-weight="800" fill="#fff" font-family="Arial">' + NAMES[i] + "</text>";
+      if (cut[i]) {
+        s += '<line x1="48" y1="' + y + '" x2="128" y2="' + y + '" stroke="' + col + '" stroke-width="7"/>';
+        s += '<line x1="152" y1="' + y + '" x2="' + (ends[i] - 30) + '" y2="' + y + '" stroke="#94A3B8" stroke-width="7"/>';
+        s += '<text x="140" y="' + (y + 8) + '" text-anchor="middle" font-size="22" font-family="Arial">✂</text>';
+      } else {
+        s += '<line x1="48" y1="' + y + '" x2="' + (ends[i] - 30) + '" y2="' + y + '" stroke="' + col + '" stroke-width="7"/>';
+        if (b.init[i] && live) s += '<g class="cut" data-i="' + i + '"><circle cx="140" cy="' + y + '" r="20" fill="#fff" stroke="' + NAV + '" stroke-width="3"/><text x="140" y="' + (y + 8) + '" text-anchor="middle" font-size="22" font-family="Arial">✂</text></g>';
+      }
+      s += '<polyline points="' + (ends[i] - 30) + "," + y + " " + (ends[i] - 18) + "," + y + " " + (ends[i] - 18) + "," + pins[i] + " " + ends[i] + "," + pins[i] + '" fill="none" stroke="' + col + '" stroke-width="7"/>';
+      s += '<text x="78" y="' + (y - 12) + '" font-size="17" font-weight="800" fill="' + (v[i] ? "#15803D" : "#64748B") + '" font-family="Courier New">' + (b.init[i] ? v[i] : "0 (dead)") + "</text>";
+    });
+    var g1, g2, outX, outY;
+    if (b.kind === "single") { g1 = gateBody(b.g1, 300, 95, 70, 84); s += g1.s; outX = g1.out; outY = 130; }
+    else {
+      g1 = gateBody(b.g1, 250, 57, 70, 84); s += g1.s;
+      s += '<polyline points="' + g1.out + ",92 400,92 400,150 420,150" + '" fill="none" stroke="' + NAV + '" stroke-width="5"/>';
+      g2 = gateBody(b.g2, 420, 135, 70, 84); s += g2.s; outX = g2.out; outY = 170;
+    }
+    var bx = 640, by = 135;
+    s += '<line x1="' + outX + '" y1="' + outY + '" x2="' + (bx - 52) + '" y2="' + by + '" stroke="' + (o ? "#DC2626" : "#16A34A") + '" stroke-width="6"/>';
+    s += '<path d="M' + (bx + 18) + " " + (by - 52) + " q 20 -22 40 -8" + '" fill="none" stroke="#78350F" stroke-width="5"/>';
+    if (o && live) s += '<circle cx="' + (bx + 58) + '" cy="' + (by - 60) + '" r="7" fill="#F59E0B"/>';
+    s += '<circle cx="' + bx + '" cy="' + by + '" r="58" fill="#1E293B" stroke="#020617" stroke-width="4"/>';
+    s += '<rect x="' + (bx - 40) + '" y="' + (by - 22) + '" width="80" height="44" rx="6" fill="#020617"/>';
+    s += '<text x="' + bx + '" y="' + (by + 11) + '" text-anchor="middle" font-size="30" font-weight="800" fill="' + (o ? "#EF4444" : "#22C55E") + '" font-family="Courier New">' + (o ? "0:" + ("0" + Math.max(0, secs)).slice(-2) : "OFF") + "</text>";
+    s += '<text x="' + bx + '" y="' + (by + 84) + '" text-anchor="middle" font-size="17" font-weight="800" fill="' + (o ? "#DC2626" : "#15803D") + '" font-family="Arial">output = ' + o + (o ? "  ARMED" : "  SAFE") + "</text>";
+    return s + "</svg>";
+  }
+
+  // ---------- state ----------
+  var KEY = "bombSquad.v1", S = null, tick = null;
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
+  function total() { return S.res.reduce(function (a, r) { return a + (r ? r.p : 0); }, 0); }
+  function head() { $("scoreBox").textContent = S ? total() + " pts" : ""; $("bestBox").textContent = S && S.best ? "High score: " + S.best : ""; }
+  function show(v) { ["startView", "gameView", "winView"].forEach(function (x) { $(x).classList.toggle("hidden", x !== v); }); }
+  function fb(ok, t, why) { $("feedback").className = "feedback " + (ok === null ? "" : ok ? "good" : "bad"); $("feedback").innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
+  function stop() { if (tick) { clearInterval(tick); tick = null; } }
+
+  function render() {
+    stop(); head();
+    if (S.i >= N || S.lives <= 0) return win();
+    show("gameView");
+    $("dots").innerHTML = S.bombs.map(function (b, i) { var r = S.res[i]; return '<span class="' + (r ? (r.p ? "done" : "") : i === S.i ? "here" : "") + '">' + (r ? (r.p ? "✔" : "💥") : i + 1) + "</span>"; }).join("");
+    $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
+    var b = S.bombs[S.i], cut = b.init.map(function () { return false; }), secs = SECS, live = false, over = false;
+    $("bombName").textContent = "Bomb " + (S.i + 1) + " of " + N + (b.kind === "single" ? "" : " · two gates!");
+    $("feedback").className = "feedback"; $("feedback").innerHTML = "Look at the circuit first. When you are ready, start the timer.";
+    $("goBtn").classList.remove("hidden"); $("nextBtn").classList.add("hidden");
+    function paint() {
+      $("svgBox").innerHTML = draw(b, cut, secs, live);
+      $("svgBox").querySelectorAll(".cut").forEach(function (el) { el.onclick = function () { snip(+el.getAttribute("data-i")); }; });
+    }
+    function end(ok, why) {
+      over = true; live = false; stop();
+      var p = ok ? 10 + Math.max(0, Math.ceil(secs)) : 0;
+      S.res[S.i] = { p: p, ok: ok }; if (!ok) S.lives--; S.answered = true; save(); head(); paint();
+      var ov = document.createElement("div");
+      ov.className = ok ? "safe" : "boom";
+      ov.innerHTML = ok ? '<div class="big">✔</div><div class="msg">DEFUSED! +' + p + "</div>" : '<div class="big">💥</div><div class="msg">BOOM!</div>';
+      $("wrap").appendChild(ov);
+      if (!ok) { $("wrap").classList.remove("shake"); void $("wrap").offsetWidth; $("wrap").classList.add("shake"); }
+      setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, ok ? 1100 : 1400);
+      $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
+      fb(ok, ok ? "✔ Defused with " + Math.ceil(secs) + " second" + (Math.ceil(secs) === 1 ? "" : "s") + " left! +" + p : "💥 " + why, explain());
+      $("goBtn").classList.add("hidden"); $("nextBtn").classList.remove("hidden");
+      $("nextBtn").textContent = S.i + 1 < N && S.lives > 0 ? "Next bomb →" : "See my score →";
+    }
+    function explain() {
+      var best = subsets(b.init.length).filter(function (s) { return s.every(function (c, i) { return !c || b.init[i]; }) && outOf(b, s) === 0; })
+        .sort(function (x, y) { return x.filter(Boolean).length - y.filter(Boolean).length; })[0];
+      var names = best.map(function (c, i) { return c ? NAMES[i] : null; }).filter(Boolean);
+      return "A safe way: cut " + names.join(" and ") + " → output 0. " + (b.kind === "single" ? b.g1 : "(A " + b.g1 + " B) " + b.g2 + " C") + ".";
+    }
+    function snip(i) {
+      if (!live || over || cut[i]) return;
+      cut[i] = true;
+      if (outOf(b, cut) === 0) return end(true);
+      if (!canDefuse(b, cut)) { paint(); return end(false, "Wrong wire! Now no cut can make the output 0."); }
+      paint();
+      fb(null, "✂ Still ARMED. Keep going!", "");
+    }
+    $("goBtn").onclick = function () {
+      if (live || over) return;
+      live = true; S.armed = S.i; save(); $("goBtn").classList.add("hidden"); fb(null, "⏱ Cut the right wire(s)!", "");
+      var t0 = Date.now();
+      tick = setInterval(function () {
+        secs = SECS - (Date.now() - t0) / 1000;
+        if (secs <= 0) { secs = 0; end(false, "Time’s up!"); return; }
+        var shown = Math.ceil(secs), txt = $("svgBox").querySelector("text[font-size='30']");
+        if (txt) txt.textContent = "0:" + ("0" + shown).slice(-2);
+      }, 100);
+      paint();
+    };
+    paint();
+    // refreshing or leaving during the countdown counts as an explosion (no free restarts)
+    if (S.armed === S.i) { live = true; end(false, "You left the page during the countdown."); }
+  }
+  function next() { S.i++; S.answered = false; save(); render(); }
+
+  // ---------- top scores (shared Apps Script board) ----------
+  var PENDING = "bombSquad.pending";
+  function pendGet() { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } }
+  function pendSet(a) { try { localStorage.setItem(PENDING, JSON.stringify(a)); } catch (e) {} }
+  function medal(i) { return ["🥇", "🥈", "🥉"][i] || String(i + 1); }
+  function renderTop(id, list, msg) {
+    var me = S ? (S.nick.slice(0, 12).toLowerCase() + "|" + S.cls) : "";
+    $(id).innerHTML = list && list.length ? list.map(function (e, i) {
+      return '<tr class="' + ((e.name.toLowerCase() + "|" + e.cls) === me ? "me" : "") + '"><td>' + medal(i) + "</td><td>" + esc(e.name) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("")
+      : '<tr><td style="color:var(--muted)">' + (msg || "No scores yet. Be the first!") + "</td></tr>";
+  }
+  function showTop(list) { renderTop("topStart", list); renderTop("topWin", list); }
+  function refreshTop() {
+    fetch(SCORE_URL + "?board=" + BOARD).then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) throw 0; showTop(d.top); })
+      .catch(function () { renderTop("topStart", null, "Top scores not available right now."); renderTop("topWin", null, "Top scores not available right now."); });
+  }
+  var flushing = false;
+  function flushPending() {
+    if (flushing) return;
+    var q = pendGet();
+    if (!q.length) { refreshTop(); return; }
+    flushing = true;
+    var e = q[0];
+    fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: e.name, cls: e.cls, score: e.score }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!(d.ok || d.error === "Score not accepted")) throw d.error || 0;
+        pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
+        if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to Top Scores"; }
+        flushing = false;
+        if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
+      }).catch(function (err) {
+        flushing = false; refreshTop();
+        if (S && pendGet().some(function (x) { return x.id === S.id; }))
+          $("winTop").textContent = "Top Scores not ready" + (typeof err === "string" ? " (“" + err + "”)" : "") + ": your score is saved and will be posted automatically later.";
+      });
+  }
+
+  function win() {
+    stop(); show("winView");
+    var sc = total();
+    if (!S.logged) {
+      S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; S.id = S.seed + "-" + S.run; save();
+      if (sc > 0) { var q = pendGet().filter(function (x) { return x.id !== S.id; }); q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc }); pendSet(q); }
+    }
+    head();
+    var dead = S.lives <= 0;
+    $("winIcon").textContent = dead ? "💥" : "🎖️";
+    $("winTitle").textContent = dead ? "OUT OF LIVES!" : "BOMB SQUAD COMPLETE!";
+    $("winWho").textContent = S.nick + " · " + S.cls + " · Game " + S.run;
+    $("winScore").textContent = sc + " pts";
+    $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
+    var ok = S.res.filter(function (r) { return r && r.ok; }).length;
+    $("winTable").innerHTML = "<tr><td>💣 Bombs defused</td><td class='n'>" + ok + " / " + N + "</td></tr><tr><td>💥 Explosions</td><td class='n'>" + (LIVES - S.lives) + "</td></tr><tr><td>⏱ Points</td><td class='n'>" + sc + " / 200</td></tr>";
+    if (!S.posted) { renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
+  }
+  function newGame(nick, cls, run, best) {
+    var bombs = []; for (var i = 0; i < N; i++) bombs.push(makeBomb(i));
+    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), bombs: bombs, i: 0, res: [], lives: LIVES };
+    save(); render();
+  }
+
+  var chosen = null;
+  $("classBtns").querySelectorAll("button").forEach(function (b) {
+    b.onclick = function () { chosen = b.textContent; $("classBtns").querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); }); };
+  });
+  $("startBtn").onclick = function () {
+    var nick = $("nick").value.trim();
+    if (!nick) { $("startMsg").textContent = "Type your nickname first."; return; }
+    if (!chosen) { $("startMsg").textContent = "Click your class: 7A, 7B or 7C."; return; }
+    newGame(nick, chosen, 1, 0);
+  };
+  $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
+  $("nextBtn").onclick = next;
+  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best); };
+  $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
+
+  flushPending();
+  S = load();
+  if (S && S.bombs) { if (S.answered) next(); else render(); } else { S = null; show("startView"); }
+  window.__BS = { state: function () { return S; }, outOf: outOf, canDefuse: canDefuse, makeBomb: makeBomb, hasTrap: hasTrap };
+})();
+</script>
+</body>
+</html>
