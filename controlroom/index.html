@@ -87,6 +87,9 @@
   table.tt td.cell2 { background: var(--amber-soft); }
   .reveal { margin-top: 14px; background: #EDE9FE; border: 3px solid var(--violet); border-radius: 14px; padding: 14px 18px; font-size: 19px; }
   .reveal b { color: var(--violet); }
+  .teacher-badge { background: var(--violet); color: var(--white); font-weight: 800; font-size: 14px; padding: 4px 10px; border-radius: 999px; }
+  .dots span.jump { cursor: pointer; }
+  .dots span.jump:hover { border-color: var(--amber); background: var(--amber-soft); color: var(--ink); }
   .partbar { text-align: center; font-weight: 800; color: var(--violet); margin: -4px 0 8px; }
   .switches .sw[disabled] { cursor: default; opacity: .9; }
   .box { background: var(--card); border-radius: 14px; padding: 12px 18px; min-width: 300px; display: inline-block; text-align: left; vertical-align: top; }
@@ -264,7 +267,11 @@
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function total() { return S.res.reduce(function (a, r) { return a + (r ? sum(r.pts) + (r.bonus || 0) : 0); }, 0); }
   function maxOf(st) { var n = PANELS[st.p].outs.length; return st.t === "build" ? n * 2 : n + 1; }
-  function head() { $("scoreBox").textContent = S ? total() + " pts" : ""; $("bestBox").textContent = S && S.best ? "High score: " + S.best : ""; }
+  function head() {
+    $("scoreBox").textContent = S ? total() + " pts" : "";
+    if (S && S.teacher) $("bestBox").innerHTML = '<span class="teacher-badge">🧑‍🏫 TEACHER MODE · click any step</span>';
+    else $("bestBox").textContent = S && S.best ? "High score: " + S.best : "";
+  }
   function show(v) { ["startView", "gameView", "winView"].forEach(function (x) { $(x).classList.toggle("hidden", x !== v); }); }
   function fb(ok, t, why) { $("feedback").className = "feedback " + (ok === null ? "" : ok ? "good" : "bad"); $("feedback").innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
 
@@ -276,7 +283,11 @@
     $("partBar").textContent = st.t === "build" ? "PART 1 · BUILD IT" : "PART 2 · PREDICT THE LIGHTS";
     $("dots").innerHTML = S.steps.map(function (x, i) {
       var label = x.t === "build" ? String(i + 1) : "P" + (i - 9);
-      return '<span class="' + (i < S.i ? "done" : i === S.i ? "here" : "") + '">' + label + "</span>"; }).join("");
+      return '<span data-i="' + i + '" class="' + (i < S.i ? "done" : i === S.i ? "here" : "") + (S.teacher ? " jump" : "") + '"' +
+        (S.teacher ? ' title="Teacher mode: jump here"' : "") + ">" + label + "</span>"; }).join("");
+    if (S.teacher) $("dots").querySelectorAll("span").forEach(function (d) {
+      d.onclick = function () { var i = +d.getAttribute("data-i"); S.i = i; S.res[i] = null; S.picks = null; S.answered = false; save(); render(); };
+    });
     $("feedback").className = "feedback"; $("feedback").innerHTML = ""; $("revealBox").innerHTML = "";
     if (st.t === "build") return renderBuild(st);
     renderPredict(st);
@@ -317,7 +328,7 @@
         picks[k] = GATES[(GATES.indexOf(picks[k]) + 1) % GATES.length]; status = null; S.picks = picks; save(); paint();
       }; });
       $("checkBtn").disabled = r.done;
-      $("giveBtn").classList.toggle("hidden", r.done || r.checks < 3);
+      $("giveBtn").classList.toggle("hidden", r.done || (r.checks < 3 && !S.teacher));
       $("nextBtn").classList.toggle("hidden", !r.done);
       $("nextBtn").textContent = S.i === 9 ? "On to Part 2 →" : "Next panel →";
     }
@@ -356,7 +367,10 @@
     $("ttTitle").textContent = "Gate cheat sheet";
     $("swA").disabled = true; $("swB").disabled = true; $("swA").onclick = null; $("swB").onclick = null;
     $("checkBtn").textContent = "✅ Check my prediction";
-    $("giveBtn").classList.add("hidden");
+    $("giveBtn").classList.toggle("hidden", !S.teacher);
+    $("giveBtn").onclick = function () {   // teacher only: fill in the right predictions, then check
+      P.outs.forEach(function (o, k) { guess[k] = gate(o[2], a, b); }); $("giveBtn").classList.add("hidden"); $("checkBtn").onclick();
+    };
     function paint() {
       $("svgBox").innerHTML = boardSvg(P, gates, a, b, order, "predict", guess, shown);
       $("swA").textContent = P.names[0] + " (" + P.ins[0] + ") = " + a; $("swA").classList.toggle("on", !!a);
@@ -430,23 +444,25 @@
   function win() {
     show("winView");
     var sc = total(), mx = sum(S.steps.map(maxOf));
+    if (S.teacher) S.logged = true;   // teacher test games are never posted or ranked
     if (!S.logged) {
       S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; S.id = S.seed + "-" + S.run; save();
       if (sc > 0) { var q = pendGet().filter(function (x) { return x.id !== S.id; }); q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc }); pendSet(q); }
     }
     head();
-    $("winWho").textContent = S.nick + " · " + S.cls + " · Game " + S.run;
+    $("winWho").textContent = S.teacher ? S.nick + " · 🧑‍🏫 Teacher mode" : S.nick + " · " + S.cls + " · Game " + S.run;
     $("winScore").textContent = sc + " / " + mx;
-    $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
+    $("winBest").textContent = S.teacher ? "Teacher test game: not posted to Top Scores." : S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
     var p1 = 0, m1 = 0, p2 = 0, m2 = 0, perfect = 0;
     S.steps.forEach(function (st, i) { var r = S.res[i], got = r ? sum(r.pts) + (r.bonus || 0) : 0;
       if (st.t === "build") { p1 += got; m1 += maxOf(st); } else { p2 += got; m2 += maxOf(st); if (r && r.bonus) perfect++; } });
     $("winTable").innerHTML = "<tr><td>Part 1 · Build It (10 panels)</td><td class='n'>" + p1 + " / " + m1 + "</td></tr>" +
       "<tr><td>Part 2 · Predict the Lights</td><td class='n'>" + p2 + " / " + m2 + "</td></tr>" +
       "<tr><td>Perfect predictions</td><td class='n'>" + perfect + " / " + NPRED + "</td></tr>";
-    if (!S.posted) { $("winTop").textContent = ""; renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
+    if (S.teacher) { $("winTop").textContent = ""; refreshTop(); }
+    else if (!S.posted) { $("winTop").textContent = ""; renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
   }
-  function newGame(nick, cls, run, best) {
+  function newGame(nick, cls, run, best, teacher) {
     var steps = PANELS.map(function (p, i) { return { t: "build", p: i, order: p.secret ? p.outs.map(function (o, k) { return k; }) : shuffle(p.outs.map(function (o, k) { return k; })) }; });
     // Part 2: 8 different panels (not the Secret Counter), random switch settings, never the same setting twice in a row
     var pool = shuffle(PANELS.map(function (p, i) { return i; }).filter(function (i) { return !PANELS[i].secret; })).slice(0, NPRED), last = -1;
@@ -454,7 +470,7 @@
       var ab; do { ab = Math.floor(rnd() * 4); } while (ab === last); last = ab;
       steps.push({ t: "predict", p: pi, a: ab >> 1, b: ab & 1, order: shuffle(PANELS[pi].outs.map(function (o, k) { return k; })) });
     });
-    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), steps: steps, i: 0, res: [], picks: null };
+    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), steps: steps, i: 0, res: [], picks: null, teacher: !!teacher };
     save(); render();
   }
 
@@ -465,12 +481,14 @@
   $("startBtn").onclick = function () {
     var nick = $("nick").value.trim();
     if (!nick) { $("startMsg").textContent = "Type your nickname first."; return; }
+    // teacher mode: name "Angelo" with no class -> jump to any step, answers on tap, nothing is posted
+    if (!chosen && nick.toLowerCase() === "angelo") { newGame(nick, "Teacher", 1, 0, true); return; }
     if (!chosen) { $("startMsg").textContent = "Click your class: 7A, 7B or 7C."; return; }
     newGame(nick, chosen, 1, 0);
   };
   $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
   $("nextBtn").onclick = next;
-  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best); };
+  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best, S.teacher); };
   $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
 
   flushPending();
