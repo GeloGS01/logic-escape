@@ -77,16 +77,18 @@
   .lab { grid-template-columns: 1fr !important; }
   .side { overflow-x: auto; }
   .board { background: var(--card); border-radius: 14px; padding: 10px; }
-  .board svg { max-width: 760px; margin: 0 auto; }
-  .board svg { display: block; width: 100%; height: auto; }
+  .board svg { display: block; width: 100%; max-width: 760px; height: auto; margin: 0 auto; }
   .board .help { color: var(--muted); font-size: 15px; text-align: center; padding: 2px 6px 4px; }
-  .gpick { cursor: pointer; }
+  .gpick, .lpick { cursor: pointer; }
   .gpick:hover .hov { stroke: var(--amber) !important; stroke-width: 5 !important; }
+  .lpick:hover circle.lamp { stroke: var(--amber) !important; stroke-width: 5 !important; }
   table.tt th.ok { background: var(--green-dark); color: var(--white); }
   table.tt th.no { background: var(--red); color: var(--white); }
   table.tt td.cell2 { background: var(--amber-soft); }
   .reveal { margin-top: 14px; background: #EDE9FE; border: 3px solid var(--violet); border-radius: 14px; padding: 14px 18px; font-size: 19px; }
   .reveal b { color: var(--violet); }
+  .partbar { text-align: center; font-weight: 800; color: var(--violet); margin: -4px 0 8px; }
+  .switches .sw[disabled] { cursor: default; opacity: .9; }
 </style>
 </head>
 <body>
@@ -100,11 +102,12 @@
 </header>
 <main>
   <section id="startView" class="start">
-    <p style="font-size:22px">One set of switches. MANY lamps. You are the engineer of 4 control panels.</p>
+    <p style="font-size:22px">One set of switches. MANY lamps. You are the engineer of the Control Room.</p>
     <div class="rules">
-      <b>1. Build:</b> every lamp has its own gate. Click a gate to change it (AND, OR, XOR, NAND, NOR).<br>
-      <b>2. Test:</b> flip the switches and watch ALL the lamps. The truth table shows every output.<br>
-      <b>3. Check:</b> each lamp that is right first time = 2 points (fixed later = 1 point).
+      <b>Part 1 · Build It (10 panels):</b> every lamp has its own gate. Click a gate to change it (AND, OR, XOR, NAND, NOR), test the switches, then Check.<br>
+      &nbsp;&nbsp;&nbsp;Each lamp right first time = 2 points (fixed later = 1 point).<br>
+      <b>Part 2 · Predict the Lights (8 rounds):</b> the gates and switches are set. Click each lamp to predict ON or OFF, then Check.<br>
+      &nbsp;&nbsp;&nbsp;1 point per correct lamp, +1 if the whole panel is right.
     </div>
     <p><input id="nick" maxlength="12" placeholder="Your nickname" autocomplete="off"></p>
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
@@ -113,26 +116,27 @@
   </section>
 
   <section id="gameView" class="hidden">
+    <div class="partbar" id="partBar"></div>
     <div class="dots" id="dots"></div>
     <div class="panel"><h2 id="pTitle"></h2><div class="how" id="pHow"></div></div>
     <div class="lab">
-      <div class="board"><div id="svgBox"></div><div class="help">Click a gate to change it · the dots show where one wire feeds several gates</div>
+      <div class="board"><div id="svgBox"></div><div class="help" id="helpLine"></div>
         <div class="switches"><button class="sw" id="swA"></button><button class="sw" id="swB"></button></div>
       </div>
-      <div class="side"><h3>Your truth table</h3><div id="ttBox"></div><div class="tested" id="testedLine"></div></div>
+      <div class="side"><h3 id="ttTitle">Your truth table</h3><div id="ttBox"></div><div class="tested" id="testedLine"></div></div>
     </div>
     <div class="feedback" id="feedback"></div>
     <div id="revealBox"></div>
     <div class="actions">
       <button id="checkBtn" class="btn">✅ Check my panel</button>
       <button id="giveBtn" class="btn hidden" style="background:#fff;color:var(--muted);border:2px solid var(--line)">Show me the answer</button>
-      <button id="nextBtn" class="btn amber hidden">Next panel →</button>
+      <button id="nextBtn" class="btn amber hidden">Next →</button>
     </div>
   </section>
 
   <section id="winView" class="win hidden">
     <div style="font-size:54px">🎛️</div>
-    <h2>ALL PANELS WORKING!</h2>
+    <h2>CONTROL ROOM COMPLETE!</h2>
     <div style="font-size:26px;font-weight:800" id="winWho"></div>
     <div class="big" id="winScore"></div>
     <div style="font-size:22px;font-weight:800;color:var(--violet)" id="winBest"></div>
@@ -153,97 +157,143 @@
   var ROWS = [[0, 0], [0, 1], [1, 0], [1, 1]];
   var LAMP = ["#FACC15", "#38BDF8", "#F472B6", "#4ADE80"];
 
-  // every lamp is ONE gate reading the SAME two inputs
+  // every lamp is ONE gate reading the SAME two inputs; panels get harder, the Secret Counter is last
   var PANELS = [
-    { t: "Vote Counter", icon: "🗳️", ins: ["A", "B"], names: ["Voter A", "Voter B"],
-      how: "Two voters press YES (1) or NO (0). Make each lamp light up at the right time.",
+    { t: "Vote Counter", icon: "🗳️", ins: ["A", "B"], names: ["Voter A", "Voter B"], how: "Two voters press YES (1) or NO (0).",
       outs: [["BOTH", "lights when BOTH voters say yes", "AND"], ["ONLY ONE", "lights when EXACTLY ONE voter says yes", "XOR"], ["NOBODY", "lights when NOBODY says yes", "NOR"]] },
-    { t: "Smart Room", icon: "🏠", ins: ["M", "D"], names: ["Motion", "Dark"],
-      how: "Two sensors: Motion (someone moves) and Dark (the room is dark). Three devices use the same two sensors.",
+    { t: "Smart Room", icon: "🏠", ins: ["M", "D"], names: ["Motion", "Dark"], how: "Two sensors: Motion (someone moves) and Dark (the room is dark).",
       outs: [["Night light", "turns on when there is motion AND it is dark", "AND"], ["Camera", "records when there is motion OR it is dark", "OR"], ["Power saver", "turns on when there is NO motion and it is NOT dark", "NOR"]] },
-    { t: "Fire Station", icon: "🚒", ins: ["S", "H"], names: ["Smoke", "Heat"],
-      how: "Two sensors: Smoke and Heat. FOUR outputs share the same two sensors!",
+    { t: "Car Dashboard", icon: "🚗", ins: ["D", "B"], names: ["Door open", "Belt off"], how: "Two sensors: a door is open (D) and a seatbelt is off (B).",
+      outs: [["Warning light", "is on if a door is open OR a belt is off", "OR"], ["Safe to drive", "is green only when NO door is open and NO belt is off", "NOR"], ["Double beep", "beeps when the door is open AND the belt is off", "AND"]] },
+    { t: "Greenhouse", icon: "🌱", ins: ["H", "D"], names: ["Hot", "Dry"], how: "Two sensors: it is Hot (H) and the soil is Dry (D).",
+      outs: [["Window vent", "opens if it is hot OR dry", "OR"], ["Mist spray", "sprays only when it is hot AND dry", "AND"], ["Happy plants", "light is on when it is NOT hot and NOT dry", "NOR"]] },
+    { t: "Elevator", icon: "🛗", ins: ["C", "P"], names: ["Door closed", "Button pressed"], how: "Two inputs: the door is closed (C) and a floor button is pressed (P).",
+      outs: [["Move", "starts only when the door is closed AND a button is pressed", "AND"], ["Please wait", "light is ON unless the door is closed AND a button is pressed", "NAND"]] },
+    { t: "Fire Station", icon: "🚒", ins: ["S", "H"], names: ["Smoke", "Heat"], how: "Two sensors: Smoke and Heat. FOUR outputs share them!",
       outs: [["Alarm bell", "rings if there is smoke OR heat", "OR"], ["Sprinklers", "spray only when there is smoke AND heat", "AND"], ["All clear", "is green when there is NO smoke and NO heat", "NOR"], ["Check sensors", "flashes when the sensors DISAGREE (only one is on)", "XOR"]] },
+    { t: "Parking Lot", icon: "🅿️", ins: ["L", "R"], names: ["Left space full", "Right space full"], how: "Two parking spaces, each with a sensor (1 = a car is there).",
+      outs: [["FULL", "sign is on when BOTH spaces are full", "AND"], ["Space free", "sign is on unless BOTH spaces are full", "NAND"], ["Empty lot", "light is on when BOTH spaces are empty", "NOR"], ["One left", "sign is on when EXACTLY ONE space is full", "XOR"]] },
+    { t: "Quiz Show", icon: "🎤", ins: ["P", "Q"], names: ["Player P", "Player Q"], how: "Two players have buzzers.",
+      outs: [["Point!", "lights when ONLY ONE player buzzes", "XOR"], ["Tie", "lights when BOTH players buzz", "AND"], ["Waiting", "lights when NOBODY has buzzed", "NOR"], ["Buzz!", "sound plays if ANY player buzzes", "OR"]] },
+    { t: "Stair Lights", icon: "💡", ins: ["U", "D"], names: ["Upstairs switch", "Downstairs switch"], how: "One switch upstairs, one downstairs.",
+      outs: [["Stair light", "is on when the switches are DIFFERENT", "XOR"], ["Night mode", "is on when BOTH switches are off", "NOR"], ["Ready", "light is on unless BOTH switches are on", "NAND"]] },
     { t: "The Secret Counter", icon: "🔢", ins: ["A", "B"], names: ["Button A", "Button B"], secret: true,
-      how: "Count how many buttons are pressed (0, 1 or 2). The TWOS lamp is worth 2, the ONES lamp is worth 1. Add up the lit lamps!",
+      how: "Count how many buttons are pressed (0, 1 or 2). The TWOS lamp is worth 2, the ONES lamp is worth 1.",
       outs: [["TWOS (2)", "is on when the count is 2 (both pressed)", "AND"], ["ONES (1)", "is on when the count is 1 (exactly one pressed)", "XOR"]] }
   ];
-  var MAX = PANELS.reduce(function (a, p) { return a + p.outs.length * 2; }, 0);
+  var NPRED = 8;
 
-  // ---------- drawing: two input buses fan out (dots) to every gate ----------
-  var NAV = "#0F172A";
-  function gateBody(g, x, y, h, w) {
+  // ---------- drawing ----------
+  var NAV = "#0F172A", GREY = "#94A3B8";
+  function gateBody(g, x, y, h, w, plain) {
     if (!g) return '<rect class="hov" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="10" fill="#fff" stroke="#94A3B8" stroke-width="3" stroke-dasharray="7 5"/><text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 9) + '" text-anchor="middle" font-size="26" font-weight="800" fill="#94A3B8" font-family="Arial">?</text>';
-    var isAnd = g === "AND" || g === "NAND", bub = g === "NAND" || g === "NOR", s = "";
-    if (g === "XOR") s += '<path class="hov" d="M' + (x - 10) + " " + y + " Q" + (x + 14) + " " + (y + h / 2) + " " + (x - 10) + " " + (y + h) + '" fill="none" stroke="' + NAV + '" stroke-width="4"/>';
-    s += isAnd ? '<path class="hov" d="M' + x + " " + y + " H" + (x + w - h / 2) + " A" + h / 2 + " " + h / 2 + " 0 0 1 " + (x + w - h / 2) + " " + (y + h) + " H" + x + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>'
-      : '<path class="hov" d="M' + (x - 4) + " " + y + " Q" + (x + 20) + " " + (y + h / 2) + " " + (x - 4) + " " + (y + h) + " Q" + (x + w * .65) + " " + (y + h) + " " + (x + w) + " " + (y + h / 2) + " Q" + (x + w * .65) + " " + y + " " + (x - 4) + " " + y + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>';
+    var isAnd = g === "AND" || g === "NAND", bub = g === "NAND" || g === "NOR", s = "", cls = plain ? "" : ' class="hov"';
+    if (g === "XOR") s += '<path' + cls + ' d="M' + (x - 10) + " " + y + " Q" + (x + 14) + " " + (y + h / 2) + " " + (x - 10) + " " + (y + h) + '" fill="none" stroke="' + NAV + '" stroke-width="4"/>';
+    s += isAnd ? '<path' + cls + ' d="M' + x + " " + y + " H" + (x + w - h / 2) + " A" + h / 2 + " " + h / 2 + " 0 0 1 " + (x + w - h / 2) + " " + (y + h) + " H" + x + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>'
+      : '<path' + cls + ' d="M' + (x - 4) + " " + y + " Q" + (x + 20) + " " + (y + h / 2) + " " + (x - 4) + " " + (y + h) + " Q" + (x + w * .65) + " " + (y + h) + " " + (x + w) + " " + (y + h / 2) + " Q" + (x + w * .65) + " " + y + " " + (x - 4) + " " + y + ' Z" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>';
     if (bub) s += '<circle cx="' + (x + w + 7) + '" cy="' + (y + h / 2) + '" r="6" fill="#fff" stroke="' + NAV + '" stroke-width="4"/>';
     s += '<text x="' + (x + w * .42) + '" y="' + (y + h / 2 + 6) + '" text-anchor="middle" font-size="15" font-weight="800" fill="#B45309" font-family="Arial">' + g + "</text>";
     return s;
   }
-  function boardSvg(P, picks, a, b, order) {
-    var n = order.length, rowH = 92, top = 30, H = top + n * rowH + 10;
-    var on = function (v) { return v ? "#22C55E" : "#94A3B8"; };
-    var busA = 120, busB = 175, gx = 270, gw = 74, gh = 56;
+  // a horizontal wire from x1 to x2 at y that jumps over the vertical wires listed in hops (a small arc = not connected)
+  function hwire(x1, x2, y, hops, col, w) {
+    var d = "M" + x1 + " " + y, r = 11;
+    hops.filter(function (h) { return h > x1 + r && h < x2 - r; }).sort(function (p, q) { return p - q; }).forEach(function (h) {
+      d += " H" + (h - r) + " A" + r + " " + r + " 0 0 1 " + (h + r) + " " + y;
+    });
+    d += " H" + x2;
+    return '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + w + '"/>';
+  }
+  // mode "build": picks are the student's gates, lamps show real outputs.
+  // mode "predict": gates are given, lamps show the student's guesses until checked (guess: null/1/0; shown = reveal real outputs)
+  function boardSvg(P, gates, a, b, order, mode, guess, shown) {
+    var n = order.length, rowH = 92, top = 30, H = top + n * rowH + 6;
+    var on = function (v) { return v ? "#22C55E" : GREY; };
+    var busA = 120, busB = 175, gx = 270, gw = 74, gh = 56, yIn2 = top + 46;
+    var rowsY = order.map(function (k, i) { return top + i * rowH + 18; });
+    var lastA = rowsY[n - 1] + 14, lastB = rowsY[n - 1] + gh - 14;
     var s = '<svg viewBox="0 0 700 ' + H + '" role="img" aria-label="Control panel">';
-    // input switches and buses
+    // inputs: A runs right then down; B runs right (hopping over A's wire) then down
     s += '<circle cx="34" cy="' + top + '" r="20" fill="' + on(a) + '"/><text x="34" y="' + (top + 7) + '" text-anchor="middle" font-size="19" font-weight="800" fill="#fff" font-family="Arial">' + P.ins[0] + "</text>";
-    s += '<circle cx="34" cy="' + (top + 46) + '" r="20" fill="' + on(b) + '"/><text x="34" y="' + (top + 53) + '" text-anchor="middle" font-size="19" font-weight="800" fill="#fff" font-family="Arial">' + P.ins[1] + "</text>";
-    var lastY = top + (n - 1) * rowH + 46;
-    s += '<polyline points="54,' + top + " " + busA + "," + top + " " + busA + "," + (lastY + 14) + '" fill="none" stroke="' + on(a) + '" stroke-width="6"/>';
-    s += '<polyline points="54,' + (top + 46) + " " + busB + "," + (top + 46) + " " + busB + "," + (lastY + 32) + '" fill="none" stroke="' + on(b) + '" stroke-width="6"/>';
+    s += '<circle cx="34" cy="' + yIn2 + '" r="20" fill="' + on(b) + '"/><text x="34" y="' + (yIn2 + 7) + '" text-anchor="middle" font-size="19" font-weight="800" fill="#fff" font-family="Arial">' + P.ins[1] + "</text>";
+    s += '<polyline points="54,' + top + " " + busA + "," + top + " " + busA + "," + lastA + '" fill="none" stroke="' + on(a) + '" stroke-width="6"/>';
+    s += hwire(54, busB, yIn2, [busA], on(b), 6);
+    s += '<line x1="' + busB + '" y1="' + yIn2 + '" x2="' + busB + '" y2="' + lastB + '" stroke="' + on(b) + '" stroke-width="6"/>';
     order.forEach(function (k, i) {
-      var y = top + i * rowH + 18, yA = y + 14, yB = y + gh - 14, g = picks[k], o = gate(g, a, b);
-      s += '<line x1="' + busA + '" y1="' + yA + '" x2="' + (gx + 4) + '" y2="' + yA + '" stroke="' + on(a) + '" stroke-width="5"/>';
+      var y = rowsY[i], yA = y + 14, yB = y + gh - 14, g = gates[k], o = gate(g, a, b);
+      // A's branch crosses B's wire only where B's wire exists (below yIn2): hop there
+      s += hwire(busA, gx + 4, yA, yA > yIn2 ? [busB] : [], on(a), 5);
       s += '<line x1="' + busB + '" y1="' + yB + '" x2="' + (gx + 4) + '" y2="' + yB + '" stroke="' + on(b) + '" stroke-width="5"/>';
       s += '<circle cx="' + busA + '" cy="' + yA + '" r="7" fill="' + on(a) + '"/><circle cx="' + busB + '" cy="' + yB + '" r="7" fill="' + on(b) + '"/>';
-      var outX = gx + gw + (g === "NAND" || g === "NOR" ? 14 : 0);
-      s += '<line x1="' + outX + '" y1="' + (y + gh / 2) + '" x2="470" y2="' + (y + gh / 2) + '" stroke="' + on(o) + '" stroke-width="5"/>';
-      s += '<g class="gpick" data-k="' + k + '"><rect x="' + (gx - 14) + '" y="' + (y - 4) + '" width="' + (gw + 34) + '" height="' + (gh + 8) + '" fill="transparent"/>' + gateBody(g, gx, y, gh, gw) + "</g>";
-      s += '<circle cx="492" cy="' + (y + gh / 2) + '" r="20" fill="' + (o ? LAMP[k % 4] : "#E2E8F0") + '" stroke="' + (o ? "#334155" : "#94A3B8") + '" stroke-width="3"/>';
-      if (o) s += '<circle cx="492" cy="' + (y + gh / 2) + '" r="29" fill="none" stroke="' + LAMP[k % 4] + '" stroke-width="5" opacity=".55"/>';
-      s += '<text x="526" y="' + (y + gh / 2 + 6) + '" font-size="15" font-weight="800" fill="' + NAV + '" font-family="Arial">' + P.outs[k][0] + "</text>";
+      var outX = gx + gw + (g === "NAND" || g === "NOR" ? 14 : 0), reveal = mode === "build" || shown;
+      s += '<line x1="' + outX + '" y1="' + (y + gh / 2) + '" x2="470" y2="' + (y + gh / 2) + '" stroke="' + (reveal ? on(o) : "#CBD5E1") + '" stroke-width="5"/>';
+      if (mode === "build") s += '<g class="gpick" data-k="' + k + '"><rect x="' + (gx - 14) + '" y="' + (y - 4) + '" width="' + (gw + 34) + '" height="' + (gh + 8) + '" fill="transparent"/>' + gateBody(g, gx, y, gh, gw) + "</g>";
+      else s += gateBody(g, gx, y, gh, gw, true);
+      var lit = mode === "build" ? o : (shown ? o : guess[k] === 1);
+      var cy = y + gh / 2, lampCol = LAMP[k % 4];
+      var lampSvg = '<circle class="lamp" cx="492" cy="' + cy + '" r="20" fill="' + (lit ? lampCol : "#E2E8F0") + '" stroke="' + (lit ? "#334155" : "#94A3B8") + '" stroke-width="3"' + (mode === "predict" && !shown && guess[k] === null ? ' stroke-dasharray="5 4"' : "") + "/>";
+      if (lit && (mode === "build" || shown)) lampSvg += '<circle cx="492" cy="' + cy + '" r="29" fill="none" stroke="' + lampCol + '" stroke-width="5" opacity=".55"/>';
+      if (mode === "predict" && !shown) lampSvg += '<text x="492" y="' + (cy + 6) + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + NAV + '" font-family="Arial">' + (guess[k] === null ? "?" : guess[k] ? "ON" : "OFF") + "</text>";
+      if (mode === "predict" && shown) lampSvg += '<text x="458" y="' + (cy + 7) + '" text-anchor="middle" font-size="20" font-weight="800" fill="' + (guess[k] === o ? "#15803D" : "#DC2626") + '" font-family="Arial">' + (guess[k] === o ? "✔" : "✘") + "</text>";
+      s += mode === "predict" && !shown ? '<g class="lpick" data-k="' + k + '"><rect x="462" y="' + (cy - 30) + '" width="60" height="60" fill="transparent"/>' + lampSvg + "</g>" : lampSvg;
+      s += '<text x="526" y="' + (cy + 6) + '" font-size="15" font-weight="800" fill="' + NAV + '" font-family="Arial">' + P.outs[k][0] + "</text>";
     });
     return s + "</svg>";
   }
 
   // ---------- state ----------
-  var KEY = "controlRoom.v1", S = null;
+  var KEY = "controlRoom.v2", S = null;
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
-  function total() { return S.res.reduce(function (a, r) { return a + (r ? r.pts.reduce(function (x, y) { return x + y; }, 0) : 0); }, 0); }
+  function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function total() { return S.res.reduce(function (a, r) { return a + (r ? sum(r.pts) + (r.bonus || 0) : 0); }, 0); }
+  function maxOf(st) { var n = PANELS[st.p].outs.length; return st.t === "build" ? n * 2 : n + 1; }
   function head() { $("scoreBox").textContent = S ? total() + " pts" : ""; $("bestBox").textContent = S && S.best ? "High score: " + S.best : ""; }
   function show(v) { ["startView", "gameView", "winView"].forEach(function (x) { $(x).classList.toggle("hidden", x !== v); }); }
   function fb(ok, t, why) { $("feedback").className = "feedback " + (ok === null ? "" : ok ? "good" : "bad"); $("feedback").innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
 
   function render() {
     head();
-    if (S.i >= PANELS.length) return win();
+    if (S.i >= S.steps.length) return win();
     show("gameView");
-    $("dots").innerHTML = PANELS.map(function (p, i) { return '<span class="' + (i < S.i ? "done" : i === S.i ? "here" : "") + '">' + p.icon + " " + (i + 1) + "</span>"; }).join("");
-    var P = PANELS[S.i], order = S.orders[S.i], n = P.outs.length;
+    var st = S.steps[S.i];
+    $("partBar").textContent = st.t === "build" ? "PART 1 · BUILD IT" : "PART 2 · PREDICT THE LIGHTS";
+    $("dots").innerHTML = S.steps.map(function (x, i) {
+      var label = x.t === "build" ? String(i + 1) : "P" + (i - 9);
+      return '<span class="' + (i < S.i ? "done" : i === S.i ? "here" : "") + '">' + label + "</span>"; }).join("");
+    $("feedback").className = "feedback"; $("feedback").innerHTML = ""; $("revealBox").innerHTML = "";
+    if (st.t === "build") return renderBuild(st);
+    renderPredict(st);
+  }
+
+  function ttTable(P, gates, order, status, hideOut) {
+    var h = '<table class="tt"><tr><th>' + P.ins[0] + "</th><th>" + P.ins[1] + "</th>" + order.map(function (k) {
+      var cls = status ? (status[k] ? "ok" : "no") : "out";
+      return '<th class="' + cls + '" title="' + P.outs[k][0] + '">' + P.outs[k][0].split(" ")[0] + "</th>"; }).join("") + "</tr>";
+    ROWS.forEach(function (rw) {
+      h += "<tr><td>" + rw[0] + "</td><td>" + rw[1] + "</td>" + order.map(function (k) { return '<td class="cell2">' + (gates[k] && !hideOut ? gate(gates[k], rw[0], rw[1]) : "?") + "</td>"; }).join("") + "</tr>";
+    });
+    return h + "</table>";
+  }
+
+  function renderBuild(st) {
+    var P = PANELS[st.p], order = st.order, n = P.outs.length;
     var r = S.res[S.i] || { pts: P.outs.map(function () { return 0; }), solved: P.outs.map(function () { return false; }), checks: 0, done: false };
     var picks = S.picks || P.outs.map(function () { return null; }), a = 0, b = 0, seen = {}, status = null;
-    $("pTitle").textContent = P.icon + "  Panel " + (S.i + 1) + " · " + P.t;
+    $("pTitle").textContent = P.icon + "  Panel " + (S.i + 1) + " of 10 · " + P.t;
     $("pHow").innerHTML = P.how + "<br>" + order.map(function (k) { return "💡 <b>" + P.outs[k][0] + "</b> " + P.outs[k][1]; }).join("<br>");
-    $("feedback").className = "feedback"; $("feedback").innerHTML = ""; $("revealBox").innerHTML = "";
+    $("helpLine").textContent = "Click a gate to change it · dots = joined wires · a little bump = wires that cross without joining";
+    $("ttTitle").textContent = "Your truth table";
+    $("swA").disabled = false; $("swB").disabled = false;
     $("swA").onclick = function () { a = 1 - a; paint(); };
     $("swB").onclick = function () { b = 1 - b; paint(); };
-
+    $("checkBtn").textContent = "✅ Check my panel";
     function paint() {
       seen[a * 2 + b] = 1;
-      $("svgBox").innerHTML = boardSvg(P, picks, a, b, order);
+      $("svgBox").innerHTML = boardSvg(P, picks, a, b, order, "build");
       $("swA").textContent = P.names[0] + " (" + P.ins[0] + ") = " + a; $("swA").classList.toggle("on", !!a);
       $("swB").textContent = P.names[1] + " (" + P.ins[1] + ") = " + b; $("swB").classList.toggle("on", !!b);
-      var h = '<table class="tt"><tr><th>' + P.ins[0] + "</th><th>" + P.ins[1] + "</th>" + order.map(function (k) {
-        var cls = status ? (status[k] ? "ok" : "no") : "out";
-        return '<th class="' + cls + '" title="' + P.outs[k][0] + '">' + P.outs[k][0].split(" ")[0] + "</th>"; }).join("") + "</tr>";
-      ROWS.forEach(function (rw, i) {
-        h += '<tr class="' + (i === a * 2 + b ? "now" : "") + '"><td>' + rw[0] + "</td><td>" + rw[1] + "</td>" +
-          order.map(function (k) { return '<td class="cell2">' + (picks[k] ? gate(picks[k], rw[0], rw[1]) : "?") + "</td>"; }).join("") + "</tr>";
-      });
-      $("ttBox").innerHTML = h + "</table>";
+      $("ttBox").innerHTML = ttTable(P, picks, order, status);
       $("testedLine").textContent = "Rows tried: " + Object.keys(seen).length + " of 4";
       $("svgBox").querySelectorAll(".gpick").forEach(function (el) { el.onclick = function () {
         if (r.done) return;
@@ -253,21 +303,20 @@
       $("checkBtn").disabled = r.done;
       $("giveBtn").classList.toggle("hidden", r.done || r.checks < 3);
       $("nextBtn").classList.toggle("hidden", !r.done);
-      $("nextBtn").textContent = S.i + 1 < PANELS.length ? "Next panel →" : "See my score →";
+      $("nextBtn").textContent = S.i === 9 ? "On to Part 2 →" : "Next panel →";
     }
     $("checkBtn").onclick = function () {
       if (picks.some(function (p) { return !p; })) { fb(false, "Every lamp needs a gate first!", "Click each dashed ? box to choose a gate."); return; }
       r.checks++;
       status = P.outs.map(function (o, k) { return ROWS.every(function (rw) { return gate(picks[k], rw[0], rw[1]) === gate(o[2], rw[0], rw[1]); }); });
-      var newly = [];
-      status.forEach(function (ok, k) { if (ok && !r.solved[k]) { r.solved[k] = true; r.pts[k] = r.checks === 1 ? 2 : 1; newly.push(k); } });
+      status.forEach(function (ok, k) { if (ok && !r.solved[k]) { r.solved[k] = true; r.pts[k] = r.checks === 1 ? 2 : 1; } });
       var allOk = status.every(Boolean);
       if (allOk) r.done = true;
       S.res[S.i] = r; S.answered = r.done; save(); head(); paint();
       if (allOk) {
-        fb(true, "✔ Panel working! Every lamp is right on all 4 rows.", "Points for this panel: " + r.pts.reduce(function (x, y) { return x + y; }, 0) + " / " + n * 2);
+        fb(true, "✔ Panel working! Every lamp is right on all 4 rows.", "Points for this panel: " + sum(r.pts) + " / " + n * 2);
         if (P.secret) $("revealBox").innerHTML = '<div class="reveal">🤯 <b>Secret revealed:</b> you just built a <b>HALF ADDER</b>, the circuit computers use to ADD numbers! ' +
-          "Look at the table: 0 buttons → lamps 0 0 · 1 button → 0 1 · 2 buttons → 1 0. The lamps <b>count in binary</b>. Every calculator and phone has millions of these.</div>";
+          "0 buttons → lamps 0 0 · 1 button → 0 1 · 2 buttons → 1 0. The lamps <b>count in binary</b>. Every calculator and phone has millions of these.</div>";
       } else {
         var wrong = order.filter(function (k) { return !status[k]; }).map(function (k) { return P.outs[k][0]; });
         fb(false, "✘ Not yet: " + wrong.join(", ") + " " + (wrong.length > 1 ? "are" : "is") + " wrong (red column).", "Read that lamp’s job again, then compare its column with each gate’s truth table. Correct lamps are locked in.");
@@ -280,22 +329,73 @@
     };
     paint();
   }
+
+  function renderPredict(st) {
+    var P = PANELS[st.p], order = st.order, n = P.outs.length, gates = P.outs.map(function (o) { return o[2]; });
+    var a = st.a, b = st.b, guess = P.outs.map(function () { return null; }), shown = false;
+    var r = { pts: P.outs.map(function () { return 0; }), bonus: 0 };
+    $("pTitle").textContent = P.icon + "  Predict " + (S.i - 9) + " of " + NPRED + " · " + P.t;
+    $("pHow").innerHTML = "The gates are built and the switches are set: <b>" + P.names[0] + " = " + a + "</b>, <b>" + P.names[1] + " = " + b + "</b>.<br>Click each lamp to predict <b>ON</b> or <b>OFF</b>, then press Check.";
+    $("helpLine").textContent = "Click a lamp: ? → ON → OFF · trace each wire through its gate";
+    $("ttTitle").textContent = "Gate cheat sheet";
+    $("swA").disabled = true; $("swB").disabled = true; $("swA").onclick = null; $("swB").onclick = null;
+    $("checkBtn").textContent = "✅ Check my prediction";
+    $("giveBtn").classList.add("hidden");
+    function paint() {
+      $("svgBox").innerHTML = boardSvg(P, gates, a, b, order, "predict", guess, shown);
+      $("swA").textContent = P.names[0] + " (" + P.ins[0] + ") = " + a; $("swA").classList.toggle("on", !!a);
+      $("swB").textContent = P.names[1] + " (" + P.ins[1] + ") = " + b; $("swB").classList.toggle("on", !!b);
+      var col = a * 2 + b, hl = ' style="background:#7C3AED;color:#fff"';
+      var cheat = '<table class="tt"><tr><th>Gate</th>' + ROWS.map(function (rw, c) { return "<th" + (c === col ? hl : "") + ">" + rw[0] + " " + rw[1] + "</th>"; }).join("") + "</tr>" + GATES.map(function (g) {
+        return "<tr><td>" + g + "</td>" + ROWS.map(function (rw, c) { return '<td class="cell2"' + (c === col ? ' style="background:#EDE9FE;font-weight:800"' : "") + ">" + gate(g, rw[0], rw[1]) + "</td>"; }).join("") + "</tr>"; }).join("") + "</table>";
+      $("ttBox").innerHTML = cheat;
+      $("testedLine").textContent = "Inputs now: " + P.ins[0] + " = " + a + ", " + P.ins[1] + " = " + b + "  →  look at the " + a + " " + b + " column";
+      $("svgBox").querySelectorAll(".lpick").forEach(function (el) { el.onclick = function () {
+        if (shown) return; var k = +el.getAttribute("data-k"); guess[k] = guess[k] === null ? 1 : guess[k] === 1 ? 0 : 1; paint();
+      }; });
+      $("checkBtn").disabled = shown;
+      $("nextBtn").classList.toggle("hidden", !shown);
+      $("nextBtn").textContent = S.i + 1 < S.steps.length ? "Next →" : "See my score →";
+    }
+    $("checkBtn").onclick = function () {
+      if (guess.some(function (g) { return g === null; })) { fb(false, "Predict EVERY lamp first!", "Click each lamp until it says ON or OFF."); return; }
+      shown = true;
+      var right = 0;
+      P.outs.forEach(function (o, k) { var ok = guess[k] === gate(o[2], a, b); if (ok) { r.pts[k] = 1; right++; } });
+      r.bonus = right === n ? 1 : 0;
+      S.res[S.i] = r; S.answered = true; save(); head(); paint();
+      var wrong = order.filter(function (k) { return guess[k] !== gate(P.outs[k][2], a, b); });
+      fb(right === n, right === n ? "✔ All " + n + " lamps right! +" + (n + 1) : "✘ " + right + " of " + n + " right: +" + right,
+        wrong.length ? wrong.map(function (k) { return P.outs[k][0] + " uses " + P.outs[k][2] + ": " + a + " " + P.outs[k][2] + " " + b + " = " + gate(P.outs[k][2], a, b); }).join("  ·  ") : "Perfect tracing!");
+    };
+    paint();
+  }
   function next() { S.i++; S.picks = null; S.answered = false; save(); render(); }
 
   function win() {
     show("winView");
-    var sc = total();
+    var sc = total(), mx = sum(S.steps.map(maxOf));
     if (!S.logged) { S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; save(); }
     head();
     $("winWho").textContent = S.nick + " · " + S.cls + " · Game " + S.run;
-    $("winScore").textContent = sc + " / " + MAX;
+    $("winScore").textContent = sc + " / " + mx;
     $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
-    $("winTable").innerHTML = PANELS.map(function (p, i) { var r = S.res[i]; var got = r ? r.pts.reduce(function (x, y) { return x + y; }, 0) : 0;
-      return "<tr><td>" + p.icon + " " + p.t + " (" + p.outs.length + " lamps)</td><td class='n'>" + got + " / " + p.outs.length * 2 + "</td></tr>"; }).join("");
+    var p1 = 0, m1 = 0, p2 = 0, m2 = 0, perfect = 0;
+    S.steps.forEach(function (st, i) { var r = S.res[i], got = r ? sum(r.pts) + (r.bonus || 0) : 0;
+      if (st.t === "build") { p1 += got; m1 += maxOf(st); } else { p2 += got; m2 += maxOf(st); if (r && r.bonus) perfect++; } });
+    $("winTable").innerHTML = "<tr><td>Part 1 · Build It (10 panels)</td><td class='n'>" + p1 + " / " + m1 + "</td></tr>" +
+      "<tr><td>Part 2 · Predict the Lights</td><td class='n'>" + p2 + " / " + m2 + "</td></tr>" +
+      "<tr><td>Perfect predictions</td><td class='n'>" + perfect + " / " + NPRED + "</td></tr>";
   }
   function newGame(nick, cls, run, best) {
-    S = { nick: nick, cls: cls, run: run, best: best || 0, i: 0, res: [], picks: null,
-      orders: PANELS.map(function (p) { return p.secret ? p.outs.map(function (o, k) { return k; }) : shuffle(p.outs.map(function (o, k) { return k; })); }) };
+    var steps = PANELS.map(function (p, i) { return { t: "build", p: i, order: p.secret ? p.outs.map(function (o, k) { return k; }) : shuffle(p.outs.map(function (o, k) { return k; })) }; });
+    // Part 2: 8 different panels (not the Secret Counter), random switch settings, never the same setting twice in a row
+    var pool = shuffle(PANELS.map(function (p, i) { return i; }).filter(function (i) { return !PANELS[i].secret; })).slice(0, NPRED), last = -1;
+    pool.forEach(function (pi) {
+      var ab; do { ab = Math.floor(rnd() * 4); } while (ab === last); last = ab;
+      steps.push({ t: "predict", p: pi, a: ab >> 1, b: ab & 1, order: shuffle(PANELS[pi].outs.map(function (o, k) { return k; })) });
+    });
+    S = { nick: nick, cls: cls, run: run, best: best || 0, steps: steps, i: 0, res: [], picks: null };
     save(); render();
   }
 
@@ -315,8 +415,8 @@
   $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
 
   S = load();
-  if (S && S.orders) { if (S.answered) next(); else render(); } else { S = null; show("startView"); }
-  window.__CR = { state: function () { return S; }, PANELS: PANELS, MAX: MAX };
+  if (S && S.steps) { if (S.answered) next(); else render(); } else { S = null; show("startView"); }
+  window.__CR = { state: function () { return S; }, PANELS: PANELS, gate: gate };
 })();
 </script>
 </body>
