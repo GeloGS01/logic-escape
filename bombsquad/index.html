@@ -98,6 +98,9 @@
   .box td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
   .box tr.me td { background: var(--amber-soft); font-weight: 800; }
   .box .scroll { max-height: 420px; overflow-y: auto; }
+  .teacher-badge { background: var(--violet); color: var(--white); font-weight: 800; font-size: 14px; padding: 4px 10px; border-radius: 999px; }
+  .dots span.jump { cursor: pointer; }
+  .dots span.jump:hover { border-color: var(--amber); background: var(--amber-soft); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -129,7 +132,7 @@
     <div class="statusbar"><span id="bombName"></span><span class="lives" id="livesBox"></span></div>
     <div class="bombwrap" id="wrap"><div id="svgBox"></div></div>
     <div class="feedback" id="feedback"></div>
-    <div class="actions"><button id="goBtn" class="btn amber">Start the timer ⏱</button><button id="nextBtn" class="btn amber hidden">Next device →</button></div>
+    <div class="actions"><button id="goBtn" class="btn amber">Start the timer ⏱</button><button id="ansBtn" class="btn hidden" style="background:#fff;color:var(--violet);border:2px solid var(--violet)">🧑‍🏫 Show the answer</button><button id="nextBtn" class="btn amber hidden">Next device →</button></div>
   </section>
 
   <section id="winView" class="win hidden">
@@ -270,7 +273,11 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
   function total() { return S.res.reduce(function (a, r) { return a + (r ? r.p : 0); }, 0); }
-  function head() { $("scoreBox").textContent = S ? total() + " pts" : ""; $("bestBox").textContent = S && S.best ? "High score: " + S.best : ""; }
+  function head() {
+    $("scoreBox").textContent = S ? total() + " pts" : "";
+    if (S && S.teacher) $("bestBox").innerHTML = '<span class="teacher-badge">🧑‍🏫 TEACHER MODE · click any device</span>';
+    else $("bestBox").textContent = S && S.best ? "High score: " + S.best : "";
+  }
   function show(v) { ["startView", "gameView", "winView"].forEach(function (x) { $(x).classList.toggle("hidden", x !== v); }); }
   function fb(ok, t, why) { $("feedback").className = "feedback " + (ok === null ? "" : ok ? "good" : "bad"); $("feedback").innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
   function stop() { if (tick) { clearInterval(tick); tick = null; } }
@@ -279,8 +286,11 @@
     stop(); head();
     if (S.i >= N || S.lives <= 0) return win();
     show("gameView");
-    $("dots").innerHTML = S.bombs.map(function (b, i) { var r = S.res[i]; return '<span class="' + (r ? (r.p ? "done" : "") : i === S.i ? "here" : "") + '">' + (r ? (r.p ? "✔" : "💥") : i + 1) + "</span>"; }).join("");
-    $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
+    $("dots").innerHTML = S.bombs.map(function (b, i) { var r = S.res[i]; return '<span class="' + (r ? (r.p ? "done" : "") : i === S.i ? "here" : "") + (S.teacher ? " jump" : "") + '" data-i="' + i + '">' + (r ? (r.p ? "✔" : "💥") : i + 1) + "</span>"; }).join("");
+    if (S.teacher) $("dots").querySelectorAll("span").forEach(function (d) {
+      d.onclick = function () { var i = +d.getAttribute("data-i"); S.i = i; S.res[i] = null; S.answered = false; S.armed = null; save(); render(); };
+    });
+    $("livesBox").textContent = S.teacher ? "∞ lives" : "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
     var b = S.bombs[S.i], cut = b.init.map(function () { return false; }), secs = SECS, live = false, over = false;
     $("bombName").innerHTML = scen(b).icon + " " + (S.i + 1) + " of " + N + " · " + scen(b).name + (b.kind === "single" ? "" : " · two gates!") + '<br><span style="font-weight:600;color:var(--muted)">' + scen(b).story + "</span>";
     $("feedback").className = "feedback"; $("feedback").innerHTML = "Look at the circuit first. When you are ready, start the timer.";
@@ -292,14 +302,15 @@
     function end(ok, why) {
       over = true; live = false; stop();
       var p = ok ? 10 + Math.max(0, Math.ceil(secs)) : 0;
-      S.res[S.i] = { p: p, ok: ok }; if (!ok) S.lives--; S.answered = true; save(); head(); paint();
+      S.res[S.i] = { p: p, ok: ok }; if (!ok && !S.teacher) S.lives--; S.answered = true; save(); head(); paint();
       var ov = document.createElement("div");
       ov.className = ok ? "safe" : "boom";
       ov.innerHTML = ok ? '<div class="big">✔</div><div class="msg">' + scen(b).win + " +" + p + "</div>" : '<div class="big">' + scen(b).loseIcon + '</div><div class="msg">' + scen(b).lose + "</div>";
       $("wrap").appendChild(ov);
       if (!ok) { $("wrap").classList.remove("shake"); void $("wrap").offsetWidth; $("wrap").classList.add("shake"); }
       setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, ok ? 1100 : 1400);
-      $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
+      $("livesBox").textContent = S.teacher ? "∞ lives" : "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
+      $("ansBtn").classList.add("hidden");
       fb(ok, ok ? "✔ " + scen(b).win + " With " + Math.ceil(secs) + " second" + (Math.ceil(secs) === 1 ? "" : "s") + " left! +" + p : scen(b).loseIcon + " " + scen(b).lose + " " + why, explain());
       $("goBtn").classList.add("hidden"); $("nextBtn").classList.remove("hidden");
       $("nextBtn").textContent = S.i + 1 < N && S.lives > 0 ? "Next device →" : "See my score →";
@@ -318,9 +329,15 @@
       paint();
       fb(null, "✂ Still " + scen(b).on + ". Keep going!", "");
     }
+    $("ansBtn").classList.toggle("hidden", !S.teacher);
+    $("ansBtn").onclick = function () {
+      if (over) return;
+      stop(); live = true; $("goBtn").classList.add("hidden"); $("ansBtn").classList.add("hidden");
+      paint(); fb(null, "⏸ Clock frozen (teacher mode).", explain() + " Now cut the wire(s) to show the class.");
+    };
     $("goBtn").onclick = function () {
       if (live || over) return;
-      live = true; S.armed = S.i; save(); $("goBtn").classList.add("hidden"); fb(null, "⏱ Cut the right wire(s)!", "");
+      live = true; if (!S.teacher) S.armed = S.i; save(); $("goBtn").classList.add("hidden"); fb(null, "⏱ Cut the right wire(s)!", "");
       var t0 = Date.now();
       tick = setInterval(function () {
         secs = SECS - (Date.now() - t0) / 1000;
@@ -378,6 +395,7 @@
   function win() {
     stop(); show("winView");
     var sc = total();
+    if (S.teacher) S.logged = true;   // teacher test games are never posted or ranked
     if (!S.logged) {
       S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; S.id = S.seed + "-" + S.run; save();
       if (sc > 0) { var q = pendGet().filter(function (x) { return x.id !== S.id; }); q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc }); pendSet(q); }
@@ -386,16 +404,17 @@
     var dead = S.lives <= 0;
     $("winIcon").textContent = dead ? "💥" : "🎖️";
     $("winTitle").textContent = dead ? "OUT OF LIVES!" : "BOMB SQUAD COMPLETE!";
-    $("winWho").textContent = S.nick + " · " + S.cls + " · Game " + S.run;
+    $("winWho").textContent = S.teacher ? S.nick + " · 🧑‍🏫 Teacher mode" : S.nick + " · " + S.cls + " · Game " + S.run;
     $("winScore").textContent = sc + " pts";
-    $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
+    $("winBest").textContent = S.teacher ? "Teacher test game: not posted to Top Scores." : S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
     var ok = S.res.filter(function (r) { return r && r.ok; }).length;
     $("winTable").innerHTML = "<tr><td>✔ Devices stopped</td><td class='n'>" + ok + " / " + N + "</td></tr><tr><td>💥 Lost</td><td class='n'>" + (LIVES - S.lives) + "</td></tr><tr><td>⏱ Points</td><td class='n'>" + sc + " / 200</td></tr>";
-    if (!S.posted) { renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
+    if (S.teacher) refreshTop();
+    else if (!S.posted) { renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
   }
-  function newGame(nick, cls, run, best) {
+  function newGame(nick, cls, run, best, teacher) {
     var order = scenOrder(), bombs = []; for (var i = 0; i < N; i++) { var bb = makeBomb(i); bb.sc = order[i % order.length]; bombs.push(bb); }
-    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), bombs: bombs, i: 0, res: [], lives: LIVES };
+    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), bombs: bombs, i: 0, res: [], lives: LIVES, teacher: !!teacher };
     save(); render();
   }
 
@@ -406,12 +425,14 @@
   $("startBtn").onclick = function () {
     var nick = $("nick").value.trim();
     if (!nick) { $("startMsg").textContent = "Type your nickname first."; return; }
+    // teacher mode: name "Angelo" with no class -> jump to any device, no lives lost, answer on tap, nothing is posted
+    if (!chosen && nick.toLowerCase() === "angelo") { newGame(nick, "Teacher", 1, 0, true); return; }
     if (!chosen) { $("startMsg").textContent = "Click your class: 7A, 7B or 7C."; return; }
     newGame(nick, chosen, 1, 0);
   };
   $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("startBtn").click(); });
   $("nextBtn").onclick = next;
-  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best); };
+  $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best, S.teacher); };
   $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
 
   flushPending();
