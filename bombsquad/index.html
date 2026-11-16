@@ -111,11 +111,11 @@
 </header>
 <main>
   <section id="startView" class="start">
-    <p style="font-size:22px">💣 10 bombs. Each one is ARMED when its output is <b>1</b>.<br>Cut the right wires to make the output <b>0</b>, in <b>10 seconds</b>.</p>
+    <p style="font-size:22px">💣🚨☢️🤖🚀 10 dangerous devices. Each one is ON while its output is <b>1</b>.<br>Cut the right wires to make the output <b>0</b>, in <b>10 seconds</b>.</p>
     <div class="rules">
       ✂ <b>Click a scissors</b> to cut that wire: it changes from 1 to 0.<br>
-      💥 <b>Careful:</b> a wrong cut can make it impossible to defuse, and then it explodes!<br>
-      ⏱ <b>Score:</b> 10 points for each bomb + 1 point for every second left. You have 3 ❤️.
+      💥 <b>Careful:</b> a wrong cut can make it impossible to stop, and then it’s game over for that device!<br>
+      ⏱ <b>Score:</b> 10 points for each device + 1 point for every second left. You have 3 ❤️.
     </div>
     <p><input id="nick" maxlength="12" placeholder="Your nickname" autocomplete="off"></p>
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
@@ -129,7 +129,7 @@
     <div class="statusbar"><span id="bombName"></span><span class="lives" id="livesBox"></span></div>
     <div class="bombwrap" id="wrap"><div id="svgBox"></div></div>
     <div class="feedback" id="feedback"></div>
-    <div class="actions"><button id="goBtn" class="btn amber">Start the timer ⏱</button><button id="nextBtn" class="btn amber hidden">Next bomb →</button></div>
+    <div class="actions"><button id="goBtn" class="btn amber">Start the timer ⏱</button><button id="nextBtn" class="btn amber hidden">Next device →</button></div>
   </section>
 
   <section id="winView" class="win hidden">
@@ -191,6 +191,26 @@
     return { kind: "single", g1: "AND", init: [1, 1] };
   }
 
+  // ---------- scenarios: same rule every time (output 1 = danger ON, cut wires to make it 0), different story ----------
+  var SCEN = [
+    { k: "bomb", icon: "💣", name: "The Bomb", story: "A ticking bomb in the school basement!", on: "ARMED", off: "SAFE", win: "DEFUSED!", lose: "BOOM!", loseIcon: "💥", fill: "#1E293B", fuse: true },
+    { k: "alarm", icon: "🚨", name: "The Burglar Alarm", story: "It will wake up the whole town at midnight!", on: "RINGING", off: "SILENT", win: "SILENCED!", lose: "WEE-OO WEE-OO!", loseIcon: "🚨", fill: "#7F1D1D" },
+    { k: "laser", icon: "🔴", name: "The Laser Grid", story: "Lasers guard the museum’s diamond. Get through!", on: "LASERS ON", off: "GRID OFF", win: "GRID DOWN!", lose: "ZAPPED!", loseIcon: "⚡", fill: "#312E81" },
+    { k: "reactor", icon: "☢️", name: "The Reactor", story: "The power plant is overheating!", on: "OVERHEAT", off: "COOL", win: "COOLED DOWN!", lose: "MELTDOWN!", loseIcon: "☢️", fill: "#14532D" },
+    { k: "robot", icon: "🤖", name: "The Rogue Robot", story: "A robot is about to smash the science lab!", on: "ACTIVE", off: "SHUT DOWN", win: "POWERED OFF!", lose: "CRASH!", loseIcon: "💥", fill: "#334155" },
+    { k: "rocket", icon: "🚀", name: "The Runaway Rocket", story: "Abort the launch before lift-off!", on: "LAUNCHING", off: "ABORTED", win: "LAUNCH ABORTED!", lose: "LIFT-OFF… OOPS!", loseIcon: "🚀", fill: "#7C2D12" },
+    { k: "flood", icon: "🌊", name: "The Flood Gate", story: "The dam gate is opening onto the village!", on: "OPENING", off: "CLOSED", win: "GATE SHUT!", lose: "SPLASH!", loseIcon: "🌊", fill: "#0C4A6E" },
+    { k: "virus", icon: "🦠", name: "The Computer Virus", story: "A virus is copying itself to every computer!", on: "SPREADING", off: "STOPPED", win: "VIRUS STOPPED!", lose: "INFECTED!", loseIcon: "🦠", fill: "#3F6212" },
+    { k: "zombie", icon: "🧟", name: "The Zombie Gate", story: "The zombie gate is unlocking. Keep it shut!", on: "UNLOCKING", off: "LOCKED", win: "GATE LOCKED!", lose: "BRAAAINS!", loseIcon: "🧟", fill: "#3B0764" },
+    { k: "volcano", icon: "🌋", name: "The Volcano Drill", story: "The drill will hit the lava in seconds!", on: "DRILLING", off: "STOPPED", win: "DRILL STOPPED!", lose: "ERUPTION!", loseIcon: "🌋", fill: "#78350F" }
+  ];
+  function scenOrder() {   // all 10 scenarios, shuffled, so a game never repeats one
+    var a = SCEN.map(function (x, i) { return i; });
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function scen(b) { return SCEN[b.sc || 0]; }
+
   // ---------- drawing ----------
   var NAV = "#0F172A", COLS = ["#DC2626", "#2563EB", "#16A34A"], NAMES = ["A", "B", "C"];
   function gateBody(g, x, y, h, w) {
@@ -232,12 +252,16 @@
     }
     var bx = 640, by = 135;
     s += '<line x1="' + outX + '" y1="' + outY + '" x2="' + (bx - 52) + '" y2="' + by + '" stroke="' + (o ? "#DC2626" : "#16A34A") + '" stroke-width="6"/>';
-    s += '<path d="M' + (bx + 18) + " " + (by - 52) + " q 20 -22 40 -8" + '" fill="none" stroke="#78350F" stroke-width="5"/>';
-    if (o && live) s += '<circle cx="' + (bx + 58) + '" cy="' + (by - 60) + '" r="7" fill="#F59E0B"/>';
-    s += '<circle cx="' + bx + '" cy="' + by + '" r="58" fill="#1E293B" stroke="#020617" stroke-width="4"/>';
-    s += '<rect x="' + (bx - 40) + '" y="' + (by - 22) + '" width="80" height="44" rx="6" fill="#020617"/>';
-    s += '<text x="' + bx + '" y="' + (by + 11) + '" text-anchor="middle" font-size="30" font-weight="800" fill="' + (o ? "#EF4444" : "#22C55E") + '" font-family="Courier New">' + (o ? "0:" + ("0" + Math.max(0, secs)).slice(-2) : "OFF") + "</text>";
-    s += '<text x="' + bx + '" y="' + (by + 84) + '" text-anchor="middle" font-size="17" font-weight="800" fill="' + (o ? "#DC2626" : "#15803D") + '" font-family="Arial">output = ' + o + (o ? "  ARMED" : "  SAFE") + "</text>";
+    var sc = scen(b);
+    if (sc.fuse) {
+      s += '<path d="M' + (bx + 18) + " " + (by - 52) + " q 20 -22 40 -8" + '" fill="none" stroke="#78350F" stroke-width="5"/>';
+      if (o && live) s += '<circle cx="' + (bx + 58) + '" cy="' + (by - 60) + '" r="7" fill="#F59E0B"/>';
+    }
+    s += '<circle cx="' + bx + '" cy="' + by + '" r="58" fill="' + sc.fill + '" stroke="#020617" stroke-width="4"' + (o && live ? ' opacity="1"' : "") + '/>';
+    s += '<text x="' + bx + '" y="' + (by - 26) + '" text-anchor="middle" font-size="30">' + sc.icon + "</text>";
+    s += '<rect x="' + (bx - 44) + '" y="' + (by - 12) + '" width="88" height="40" rx="6" fill="#020617"/>';
+    s += '<text x="' + bx + '" y="' + (by + 18) + '" text-anchor="middle" font-size="' + (o ? 28 : 15) + '" font-weight="800" fill="' + (o ? "#EF4444" : "#22C55E") + '" font-family="Courier New" class="clock">' + (o ? "0:" + ("0" + Math.max(0, secs)).slice(-2) : sc.off) + "</text>";
+    s += '<text x="' + bx + '" y="' + (by + 84) + '" text-anchor="middle" font-size="16" font-weight="800" fill="' + (o ? "#DC2626" : "#15803D") + '" font-family="Arial">output = ' + o + "  ·  " + (o ? sc.on : sc.off) + "</text>";
     return s + "</svg>";
   }
 
@@ -258,7 +282,7 @@
     $("dots").innerHTML = S.bombs.map(function (b, i) { var r = S.res[i]; return '<span class="' + (r ? (r.p ? "done" : "") : i === S.i ? "here" : "") + '">' + (r ? (r.p ? "✔" : "💥") : i + 1) + "</span>"; }).join("");
     $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
     var b = S.bombs[S.i], cut = b.init.map(function () { return false; }), secs = SECS, live = false, over = false;
-    $("bombName").textContent = "Bomb " + (S.i + 1) + " of " + N + (b.kind === "single" ? "" : " · two gates!");
+    $("bombName").innerHTML = scen(b).icon + " " + (S.i + 1) + " of " + N + " · " + scen(b).name + (b.kind === "single" ? "" : " · two gates!") + '<br><span style="font-weight:600;color:var(--muted)">' + scen(b).story + "</span>";
     $("feedback").className = "feedback"; $("feedback").innerHTML = "Look at the circuit first. When you are ready, start the timer.";
     $("goBtn").classList.remove("hidden"); $("nextBtn").classList.add("hidden");
     function paint() {
@@ -271,14 +295,14 @@
       S.res[S.i] = { p: p, ok: ok }; if (!ok) S.lives--; S.answered = true; save(); head(); paint();
       var ov = document.createElement("div");
       ov.className = ok ? "safe" : "boom";
-      ov.innerHTML = ok ? '<div class="big">✔</div><div class="msg">DEFUSED! +' + p + "</div>" : '<div class="big">💥</div><div class="msg">BOOM!</div>';
+      ov.innerHTML = ok ? '<div class="big">✔</div><div class="msg">' + scen(b).win + " +" + p + "</div>" : '<div class="big">' + scen(b).loseIcon + '</div><div class="msg">' + scen(b).lose + "</div>";
       $("wrap").appendChild(ov);
       if (!ok) { $("wrap").classList.remove("shake"); void $("wrap").offsetWidth; $("wrap").classList.add("shake"); }
       setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, ok ? 1100 : 1400);
       $("livesBox").textContent = "❤️".repeat(S.lives) + "🖤".repeat(LIVES - S.lives);
-      fb(ok, ok ? "✔ Defused with " + Math.ceil(secs) + " second" + (Math.ceil(secs) === 1 ? "" : "s") + " left! +" + p : "💥 " + why, explain());
+      fb(ok, ok ? "✔ " + scen(b).win + " With " + Math.ceil(secs) + " second" + (Math.ceil(secs) === 1 ? "" : "s") + " left! +" + p : scen(b).loseIcon + " " + scen(b).lose + " " + why, explain());
       $("goBtn").classList.add("hidden"); $("nextBtn").classList.remove("hidden");
-      $("nextBtn").textContent = S.i + 1 < N && S.lives > 0 ? "Next bomb →" : "See my score →";
+      $("nextBtn").textContent = S.i + 1 < N && S.lives > 0 ? "Next device →" : "See my score →";
     }
     function explain() {
       var best = subsets(b.init.length).filter(function (s) { return s.every(function (c, i) { return !c || b.init[i]; }) && outOf(b, s) === 0; })
@@ -292,7 +316,7 @@
       if (outOf(b, cut) === 0) return end(true);
       if (!canDefuse(b, cut)) { paint(); return end(false, "Wrong wire! Now no cut can make the output 0."); }
       paint();
-      fb(null, "✂ Still ARMED. Keep going!", "");
+      fb(null, "✂ Still " + scen(b).on + ". Keep going!", "");
     }
     $("goBtn").onclick = function () {
       if (live || over) return;
@@ -301,7 +325,7 @@
       tick = setInterval(function () {
         secs = SECS - (Date.now() - t0) / 1000;
         if (secs <= 0) { secs = 0; end(false, "Time’s up!"); return; }
-        var shown = Math.ceil(secs), txt = $("svgBox").querySelector("text[font-size='30']");
+        var shown = Math.ceil(secs), txt = $("svgBox").querySelector("text.clock");
         if (txt) txt.textContent = "0:" + ("0" + shown).slice(-2);
       }, 100);
       paint();
@@ -366,11 +390,11 @@
     $("winScore").textContent = sc + " pts";
     $("winBest").textContent = S.newBest ? "🎉 New high score!" : "Your high score: " + S.best + ". Play again to beat it!";
     var ok = S.res.filter(function (r) { return r && r.ok; }).length;
-    $("winTable").innerHTML = "<tr><td>💣 Bombs defused</td><td class='n'>" + ok + " / " + N + "</td></tr><tr><td>💥 Explosions</td><td class='n'>" + (LIVES - S.lives) + "</td></tr><tr><td>⏱ Points</td><td class='n'>" + sc + " / 200</td></tr>";
+    $("winTable").innerHTML = "<tr><td>✔ Devices stopped</td><td class='n'>" + ok + " / " + N + "</td></tr><tr><td>💥 Lost</td><td class='n'>" + (LIVES - S.lives) + "</td></tr><tr><td>⏱ Points</td><td class='n'>" + sc + " / 200</td></tr>";
     if (!S.posted) { renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
   }
   function newGame(nick, cls, run, best) {
-    var bombs = []; for (var i = 0; i < N; i++) bombs.push(makeBomb(i));
+    var order = scenOrder(), bombs = []; for (var i = 0; i < N; i++) { var bb = makeBomb(i); bb.sc = order[i % order.length]; bombs.push(bb); }
     S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), bombs: bombs, i: 0, res: [], lives: LIVES };
     save(); render();
   }
