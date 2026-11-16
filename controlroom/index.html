@@ -89,6 +89,13 @@
   .reveal b { color: var(--violet); }
   .partbar { text-align: center; font-weight: 800; color: var(--violet); margin: -4px 0 8px; }
   .switches .sw[disabled] { cursor: default; opacity: .9; }
+  .box { background: var(--card); border-radius: 14px; padding: 12px 18px; min-width: 300px; display: inline-block; text-align: left; vertical-align: top; }
+  .box h3 { margin: 0 0 8px; font-size: 20px; }
+  .box table { border-collapse: collapse; width: 100%; font-size: 18px; }
+  .box td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .box td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
+  .box tr.me td { background: var(--amber-soft); font-weight: 800; }
+  .box .scroll { max-height: 420px; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -108,11 +115,13 @@
       &nbsp;&nbsp;&nbsp;Each lamp right first time = 2 points (fixed later = 1 point).<br>
       <b>Part 2 · Predict the Lights (8 rounds):</b> the gates and switches are set. Click each lamp to predict ON or OFF, then Check.<br>
       &nbsp;&nbsp;&nbsp;1 point per correct lamp, +1 if the whole panel is right.
+      🏆 <b>Top Scores:</b> your final score goes on the board for all ICT 7 classes. Play again to beat it!
     </div>
     <p><input id="nick" maxlength="12" placeholder="Your nickname" autocomplete="off"></p>
     <div class="classes" id="classBtns"><button>7A</button><button>7B</button><button>7C</button></div>
     <p><button id="startBtn" class="btn amber" style="font-size:26px;padding:14px 40px">Start</button></p>
     <p id="startMsg" style="color:var(--red);font-weight:700;min-height:26px"></p>
+    <div class="box"><h3>🏆 Top Scores · all ICT 7 classes</h3><div class="scroll"><table id="topStart"></table></div></div>
   </section>
 
   <section id="gameView" class="hidden">
@@ -140,8 +149,12 @@
     <div style="font-size:26px;font-weight:800" id="winWho"></div>
     <div class="big" id="winScore"></div>
     <div style="font-size:22px;font-weight:800;color:var(--violet)" id="winBest"></div>
-    <table id="winTable"></table>
+    <div class="sent" id="winTop" style="color:var(--muted);min-height:22px"></div>
     <p><button id="againBtn" class="btn amber">▶ Play again</button></p>
+    <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
+      <div class="box"><h3>This game</h3><table id="winTable"></table></div>
+      <div class="box"><h3>🏆 Top Scores · all ICT 7 classes</h3><div class="scroll"><table id="topWin"></table></div></div>
+    </div>
     <p style="color:var(--muted)">Raise your hand and show your teacher this screen.</p>
   </section>
   <footer>Your progress is saved on this computer. <a href="#" id="resetLink">New player</a></footer>
@@ -153,6 +166,9 @@
   function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   var $ = function (id) { return document.getElementById(id); };
   var GATES = ["AND", "OR", "XOR", "NAND", "NOR"];
+  var SCORE_URL = "https://script.google.com/macros/s/AKfycbwGfGhDRjyTZJ2Y2Rjv7kMhflGVrs6RNkuuBfHDxO11dbH-tpLHXlbH0Rnx060KyFDJ/exec";
+  var BOARD = "ict7-control";
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function gate(g, a, b) { if (!g) return 0; var r = g === "AND" || g === "NAND" ? a & b : g === "XOR" ? a ^ b : a | b; return g === "NAND" || g === "NOR" ? 1 - r : r; }
   var ROWS = [[0, 0], [0, 1], [1, 0], [1, 1]];
   var LAMP = ["#FACC15", "#38BDF8", "#F472B6", "#4ADE80"];
@@ -372,10 +388,52 @@
   }
   function next() { S.i++; S.picks = null; S.answered = false; save(); render(); }
 
+  // ---------- top scores (shared Apps Script board) ----------
+  var PENDING = "controlRoom.pending";
+  function pendGet() { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } }
+  function pendSet(a) { try { localStorage.setItem(PENDING, JSON.stringify(a)); } catch (e) {} }
+  function medal(i) { return ["🥇", "🥈", "🥉"][i] || String(i + 1); }
+  function renderTop(id, list, msg) {
+    var me = S ? (S.nick.slice(0, 12).toLowerCase() + "|" + S.cls) : "";
+    $(id).innerHTML = list && list.length ? list.map(function (e, i) {
+      return '<tr class="' + ((e.name.toLowerCase() + "|" + e.cls) === me ? "me" : "") + '"><td>' + medal(i) + "</td><td>" + esc(e.name) + " (" + esc(e.cls) + ')</td><td class="n">' + e.score + "</td></tr>"; }).join("")
+      : '<tr><td style="color:var(--muted)">' + (msg || "No scores yet. Be the first!") + "</td></tr>";
+  }
+  function showTop(list) { renderTop("topStart", list); renderTop("topWin", list); }
+  function refreshTop() {
+    fetch(SCORE_URL + "?board=" + BOARD).then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) throw 0; showTop(d.top); })
+      .catch(function () { renderTop("topStart", null, "Top scores not available right now."); renderTop("topWin", null, "Top scores not available right now."); });
+  }
+  var flushing = false;
+  function flushPending() {
+    if (flushing) return;
+    var q = pendGet();
+    if (!q.length) { refreshTop(); return; }
+    flushing = true;
+    var e = q[0];
+    fetch(SCORE_URL, { method: "POST", body: JSON.stringify({ board: BOARD, name: e.name, cls: e.cls, score: e.score }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!(d.ok || d.error === "Score not accepted")) throw d.error || 0;
+        pendSet(pendGet().filter(function (x) { return x.id !== e.id; }));
+        if (S && e.id === S.id && d.ok) { S.posted = true; save(); $("winTop").textContent = "✔ Posted to Top Scores"; }
+        flushing = false;
+        if (pendGet().length) flushPending(); else if (d.top) showTop(d.top); else refreshTop();
+      }).catch(function (err) {
+        flushing = false; refreshTop();
+        if (S && pendGet().some(function (x) { return x.id === S.id; }))
+          $("winTop").textContent = "Top Scores not ready" + (typeof err === "string" ? " (“" + err + "”)" : "") + ": your score is saved and will be posted automatically later.";
+      });
+  }
+
   function win() {
     show("winView");
     var sc = total(), mx = sum(S.steps.map(maxOf));
-    if (!S.logged) { S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; save(); }
+    if (!S.logged) {
+      S.newBest = sc > (S.best || 0); S.best = Math.max(S.best || 0, sc); S.logged = true; S.id = S.seed + "-" + S.run; save();
+      if (sc > 0) { var q = pendGet().filter(function (x) { return x.id !== S.id; }); q.push({ id: S.id, name: S.nick.slice(0, 12), cls: S.cls, score: sc }); pendSet(q); }
+    }
     head();
     $("winWho").textContent = S.nick + " · " + S.cls + " · Game " + S.run;
     $("winScore").textContent = sc + " / " + mx;
@@ -386,6 +444,7 @@
     $("winTable").innerHTML = "<tr><td>Part 1 · Build It (10 panels)</td><td class='n'>" + p1 + " / " + m1 + "</td></tr>" +
       "<tr><td>Part 2 · Predict the Lights</td><td class='n'>" + p2 + " / " + m2 + "</td></tr>" +
       "<tr><td>Perfect predictions</td><td class='n'>" + perfect + " / " + NPRED + "</td></tr>";
+    if (!S.posted) { $("winTop").textContent = ""; renderTop("topWin", null, "Posting your score…"); flushPending(); } else refreshTop();
   }
   function newGame(nick, cls, run, best) {
     var steps = PANELS.map(function (p, i) { return { t: "build", p: i, order: p.secret ? p.outs.map(function (o, k) { return k; }) : shuffle(p.outs.map(function (o, k) { return k; })) }; });
@@ -395,7 +454,7 @@
       var ab; do { ab = Math.floor(rnd() * 4); } while (ab === last); last = ab;
       steps.push({ t: "predict", p: pi, a: ab >> 1, b: ab & 1, order: shuffle(PANELS[pi].outs.map(function (o, k) { return k; })) });
     });
-    S = { nick: nick, cls: cls, run: run, best: best || 0, steps: steps, i: 0, res: [], picks: null };
+    S = { nick: nick, cls: cls, run: run, best: best || 0, seed: Math.floor(Math.random() * 1e9), steps: steps, i: 0, res: [], picks: null };
     save(); render();
   }
 
@@ -414,6 +473,7 @@
   $("againBtn").onclick = function () { newGame(S.nick, S.cls, (S.run || 1) + 1, S.best); };
   $("resetLink").onclick = function (e) { e.preventDefault(); if (!S || confirm("New player? This game will end.")) { try { localStorage.removeItem(KEY); } catch (er) {} location.reload(); } };
 
+  flushPending();
   S = load();
   if (S && S.steps) { if (S.answered) next(); else render(); } else { S = null; show("startView"); }
   window.__CR = { state: function () { return S; }, PANELS: PANELS, gate: gate };
