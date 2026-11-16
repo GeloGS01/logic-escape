@@ -223,10 +223,10 @@
   // mode "build": picks are the student's gates, lamps show real outputs.
   // mode "predict": gates are given, lamps show the student's guesses until checked (guess: null/1/0; shown = reveal real outputs)
   function boardSvg(P, gates, a, b, order, mode, guess, shown) {
-    var n = order.length, rowH = 92, top = 30, H = top + n * rowH + 6;
+    var n = order.length, rowH = 92, top = 30, firstY = top + 104, H = firstY + (n - 1) * rowH + 56 + 16;
     var on = function (v) { return v ? "#22C55E" : GREY; };
-    var busA = 120, busB = 175, gx = 270, gw = 74, gh = 56, yIn2 = top + 46;
-    var rowsY = order.map(function (k, i) { return top + i * rowH + 18; });
+    var busA = 120, busB = 175, gx = 270, gw = 74, gh = 56, yIn2 = top + 72;
+    var rowsY = order.map(function (k, i) { return firstY + i * rowH; });   // every row sits below both input wires, so no branch touches the input hop
     var lastA = rowsY[n - 1] + 14, lastB = rowsY[n - 1] + gh - 14;
     var s = '<svg viewBox="0 0 700 ' + H + '" role="img" aria-label="Control panel">';
     // inputs: A runs right then down; B runs right (hopping over A's wire) then down
