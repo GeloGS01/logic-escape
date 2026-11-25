@@ -113,12 +113,20 @@
   </section>
 
   <section id="practiceView" class="hidden">
+    <div id="nickBox" class="start">
+      <p style="font-size:20px">Type your nickname so your level is saved for <b>you</b>. Sharing a laptop? Each nickname keeps its own progress.</p>
+      <p><input id="nick" maxlength="16" placeholder="Your nickname" autocomplete="off"></p>
+      <p><button id="goBtn" class="btn amber" style="font-size:22px">Start practice</button></p>
+      <p id="nickMsg" style="color:var(--red);font-weight:700;min-height:24px"></p>
+    </div>
+    <div id="playArea" class="hidden">
     <div class="stats" id="stats"></div>
     <div class="panel"><h2 id="pTitle"></h2><div class="how" id="pHow"></div></div>
     <div class="diagram" id="pDiagram"></div>
     <div id="pStep"></div>
     <div class="feedback" id="feedback"></div>
     <div class="actions"><button id="checkBtn" class="btn hidden">✅ Check my table</button><button id="newBtn" class="btn amber hidden">Next circuit →</button></div>
+    </div>
   </section>
   <footer>Your practice progress is saved on this computer. <a href="#" id="resetLink">Reset my progress</a></footer>
 </main>
@@ -256,9 +264,10 @@
   $("nextBtn").onclick = function () { if (step < STEPS.length - 1) { step++; showStep(); } else tab("practice"); };
 
   // ---------- Part 2: Practice (random, repeatable) ----------
-  var KEY = "circuitReader.v1", P = { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false };
-  try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) P = saved; } catch (e) {}
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
+  // progress is kept per nickname, so two students can share one laptop
+  var KEY = "circuitReader.v1", NICK = "", FRESH = function () { return { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false }; }, P = FRESH();
+  function load(n) { NICK = n; P = FRESH(); try { var s = JSON.parse(localStorage.getItem(KEY + ":" + n.toLowerCase()) || "null"); if (s) P = s; } catch (e) {} }
+  function save() { if (!NICK) return; try { localStorage.setItem(KEY + ":" + NICK.toLowerCase(), JSON.stringify(P)); } catch (e) {} }
   var POOL = { 1: ["AND", "OR"], 2: ["AND", "OR", "XOR"], 3: ["AND", "OR", "XOR", "NAND", "NOR", "XNOR"] };
   var NEED = 5, MASTER = 5;   // perfect rounds in a row to level up / to master level 3
   function newCircuit() {
@@ -275,7 +284,7 @@
     return outL;
   }
   function stats() {
-    $("stats").innerHTML = "<span>Level " + P.level + " of 3</span><span>Streak " + P.streak + "</span><span>Best streak " + P.best + "</span><span>Rounds " + P.rounds + "</span>" + (P.mastered ? "<span class='m'>🏅 MASTERED</span>" : "");
+    $("stats").innerHTML = "<span>👤 " + NICK.replace(/[<>&"]/g, "") + " · <a href='#' id='switchLink'>switch player</a></span><span>Level " + P.level + " of 3</span><span>Streak " + P.streak + "</span><span>Best streak " + P.best + "</span><span>Rounds " + P.rounds + "</span>" + (P.mastered ? "<span class='m'>🏅 MASTERED</span>" : "");
     $("scoreBox").textContent = P.points + " pts"; $("bestBox").textContent = P.mastered ? "🏅 Mastered" : "Level " + P.level;
   }
   var R = null;
@@ -319,13 +328,23 @@
     };
   }
   $("newBtn").onclick = round;
-  $("resetLink").onclick = function (e) { e.preventDefault(); if (confirm("Reset your level and streak?")) { P = { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false }; save(); round(); } };
+  $("resetLink").onclick = function (e) { e.preventDefault(); if (confirm("Reset your level and streak?")) { if (!NICK) return; P = FRESH(); save(); round(); } };
 
   function tab(t) {
     $("tabLearn").classList.toggle("on", t === "learn"); $("tabPractice").classList.toggle("on", t === "practice");
     $("learnView").classList.toggle("hidden", t !== "learn"); $("practiceView").classList.toggle("hidden", t !== "practice");
-    if (t === "practice" && !R) round();
+    if (t === "practice" && !NICK) { $("nickBox").classList.remove("hidden"); $("playArea").classList.add("hidden"); $("nick").focus(); }
   }
+  $("goBtn").onclick = function () {
+    var n = $("nick").value.trim();
+    if (!n) { $("nickMsg").textContent = "Type your nickname first."; return; }
+    load(n); $("nickMsg").textContent = ""; $("nickBox").classList.add("hidden"); $("playArea").classList.remove("hidden"); round();
+    if (P.rounds) fb(null, "👋 Welcome back, " + n.replace(/[<>&"]/g, "") + "! Continuing at Level " + P.level + (P.mastered ? " (🏅 mastered)" : "") + ", streak " + P.streak + ".", "");
+  };
+  $("nick").addEventListener("keydown", function (e) { if (e.key === "Enter") $("goBtn").click(); });
+  document.addEventListener("click", function (e) {
+    if (e.target && e.target.id === "switchLink") { e.preventDefault(); NICK = ""; R = null; P = FRESH(); $("nick").value = ""; stats(); tab("practice"); }
+  });
   $("tabLearn").onclick = function () { tab("learn"); };
   $("tabPractice").onclick = function () { tab("practice"); };
   showStep(); stats();
