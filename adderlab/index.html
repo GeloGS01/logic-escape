@@ -236,14 +236,27 @@
   var NAMES = { 1: "Half adder", 2: "Full adder", 3: "2-bit sums", 4: "4-bit sums" }, NEED = 5, MASTER = 5, TOP = 4;
   var R = null;
   // a problem = the numbers to add (bit arrays) + the answer bits the student must fill (left to right)
-  function newProblem() {
-    if (P.level <= 2) {
-      var ins = P.level === 1 ? [rnd(2), rnd(2)] : [rnd(2), rnd(2), rnd(2)];
-      return { kind: "bits", ins: ins, ans: bits(ins.reduce(function (x, y) { return x + y; }, 0), 2) };
+  function allProblems(lv) {
+    var list = [], n, m, a, b;
+    if (lv <= 2) {
+      n = lv === 1 ? 2 : 3;
+      for (m = 0; m < (1 << n); m++) { var ins = bits(m, n); list.push({ kind: "bits", ins: ins, ans: bits(ins.reduce(function (x, y) { return x + y; }, 0), 2) }); }
+      return list;
     }
-    var w = P.level === 3 ? 2 : 4, a, b;
-    do { a = rnd(1 << w); b = rnd(1 << w); } while (a + b < 2);   // skip trivial 0+0, 0+1
-    return { kind: "sum", w: w, a: a, b: b, ans: bits(a + b, w + 1) };
+    var w = lv === 3 ? 2 : 4;
+    for (a = 0; a < (1 << w); a++) for (b = 0; b < (1 << w); b++) if (a + b >= 2) list.push({ kind: "sum", w: w, a: a, b: b, ans: bits(a + b, w + 1) });   // skip trivial 0+0, 0+1
+    return list;
+  }
+  // deal like a shuffled deck: every problem once before any repeats, never the same twice in a row
+  var BAG = [], BAG_LV = 0, LAST = "";
+  function key(p) { return JSON.stringify(p.ins || [p.a, p.b]); }
+  function newProblem() {
+    if (BAG_LV !== P.level || !BAG.length) {
+      BAG = allProblems(P.level); BAG_LV = P.level;
+      for (var i = BAG.length - 1; i > 0; i--) { var j = rnd(i + 1), t = BAG[i]; BAG[i] = BAG[j]; BAG[j] = t; }
+      if (key(BAG[BAG.length - 1]) === LAST) { var t2 = BAG[0]; BAG[0] = BAG[BAG.length - 1]; BAG[BAG.length - 1] = t2; }
+    }
+    var p = BAG.pop(); LAST = key(p); return p;
   }
   function stats() {
     $("stats").innerHTML = "<span>👤 " + NICK.replace(/[<>&"]/g, "") + " · <a href='#' id='switchLink'>switch player</a></span><span>Level " + P.level + " of " + TOP + ": " + NAMES[P.level] + "</span><span>Streak " + P.streak + "</span><span>Best streak " + P.best + "</span><span>Solved " + P.rounds + "</span>" + (P.mastered ? "<span class='m'>🏅 MASTERED</span>" : "");
@@ -312,7 +325,7 @@
   $("tabLearn").onclick = function () { tab("learn"); };
   $("tabPractice").onclick = function () { tab("practice"); };
   showStep(); stats();
-  window.__ADD = { P: function () { return P; }, R: function () { return R; }, bits: bits };
+  window.__ADD = { P: function () { return P; }, R: function () { return R; }, bits: bits, newProblem: newProblem, key: key };
 })();
 </script>
 </body>
