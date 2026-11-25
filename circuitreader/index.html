@@ -260,7 +260,7 @@
   try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) P = saved; } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
   var POOL = { 1: ["AND", "OR"], 2: ["AND", "OR", "XOR"], 3: ["AND", "OR", "XOR", "NAND", "NOR", "XNOR"] };
-  var NEED = 3, MASTER = 5;   // perfect rounds in a row to level up / to master level 3
+  var NEED = 5, MASTER = 5;   // perfect rounds in a row to level up / to master level 3
   function newCircuit() {
     for (;;) {
       var c = { g1: pick(POOL[P.level]), g2: pick(POOL[P.level]), inner: P.level === 1 ? "AB" : pick(["AB", "BC"]) };

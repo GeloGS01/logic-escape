@@ -224,7 +224,7 @@
   var KEY = "adderLab.v1", P = { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false };
   try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) P = saved; } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
-  var NAMES = { 1: "Half adder", 2: "Full adder", 3: "2-bit sums", 4: "4-bit sums" }, NEED = 3, MASTER = 5, TOP = 4;
+  var NAMES = { 1: "Half adder", 2: "Full adder", 3: "2-bit sums", 4: "4-bit sums" }, NEED = 5, MASTER = 5, TOP = 4;
   var R = null;
   // a problem = the numbers to add (bit arrays) + the answer bits the student must fill (left to right)
   function newProblem() {
