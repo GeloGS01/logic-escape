@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adder Lab</title>
+<style>
+  :root {
+    --navy: #0B1D2E; --ink: #0F172A; --card: #EEF2F7; --line: #CBD5E1; --muted: #64748B;
+    --amber: #F59E0B; --amber-soft: #FEF3C7; --green: #22C55E; --green-dark: #15803D; --green-soft: #DCFCE7;
+    --red: #DC2626; --red-soft: #FEE2E2; --white: #FFFFFF; --violet: #7C3AED;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--white); color: var(--ink); font: 18px/1.4 -apple-system, "Segoe UI", Calibri, Arial, sans-serif; }
+  .school { background: var(--white); border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .school img { height: 64px; width: auto; display: block; }
+  .school .acs { max-width: 70%; object-fit: contain; }
+  header { background: var(--navy); color: var(--white); padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 28px; }
+  header .kicker { color: var(--amber); font-weight: 700; font-size: 15px; }
+  header .credit { color: #94A3B8; font-size: 14px; margin-top: 2px; }
+  header .credit b { color: #CBD5E1; font-weight: 600; }
+  header .score { margin-left: auto; text-align: right; }
+  header .score b { font: 800 30px "Courier New", monospace; color: var(--amber); display: block; }
+  header .score span { color: #94A3B8; font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px 16px 32px; }
+  .dots { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .dots span { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 17px; border: 2px solid var(--line); background: var(--card); color: #94A3B8; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .dots span.done { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
+  .dots span.here { background: var(--ink); border-color: var(--ink); color: var(--white); }
+  .panel { background: var(--amber-soft); border-radius: 14px; padding: 14px 20px; }
+  .panel h2 { margin: 0 0 4px; font-size: 25px; }
+  .panel .how { color: #92400E; font-weight: 600; }
+  .lab { display: grid; grid-template-columns: 1fr 260px; gap: 18px; margin-top: 14px; align-items: start; }
+  .bench { background: var(--card); border-radius: 14px; padding: 12px; text-align: center; }
+  .bench svg { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; }
+  .switches { display: flex; gap: 14px; justify-content: center; margin-top: 8px; }
+  .sw { font: inherit; font-size: 22px; font-weight: 800; padding: 10px 22px; border-radius: 14px; border: 3px solid var(--line); background: var(--white); cursor: pointer; min-width: 140px; }
+  .sw.on { background: var(--green); border-color: var(--green-dark); color: var(--white); }
+  .side h3 { margin: 0 0 6px; font-size: 17px; text-align: center; }
+  table.tt { border-collapse: collapse; margin: 0 auto; font: 700 22px "Courier New", monospace; }
+  table.tt th, table.tt td { border: 2px solid var(--line); padding: 5px 18px; text-align: center; }
+  table.tt th { background: var(--ink); color: var(--white); }
+  table.tt th.out { background: var(--amber); color: var(--ink); }
+  table.tt td.out { background: var(--amber-soft); min-width: 70px; }
+  table.tt tr.now td { outline: 3px solid var(--amber); outline-offset: -3px; }
+  .tested { text-align: center; color: var(--muted); font-weight: 700; margin-top: 8px; }
+  .choices { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .choices button { min-width: 120px; font: inherit; font-size: 23px; font-weight: 800; padding: 12px 20px; border-radius: 14px; border: 3px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer; }
+  .choices button:hover:not([disabled]) { border-color: var(--amber); background: var(--amber-soft); }
+  .choices button.right { background: var(--green-soft); border-color: var(--green); color: var(--green-dark); }
+  .choices button.wrong { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+  .choices button[disabled] { cursor: default; opacity: .9; }
+  .q { text-align: center; font-size: 22px; font-weight: 800; margin-top: 14px; }
+  .feedback { min-height: 56px; margin-top: 12px; font-size: 21px; font-weight: 700; text-align: center; }
+  .feedback.good { color: var(--green-dark); } .feedback.bad { color: var(--red); }
+  .feedback .why { display: block; font-weight: 500; color: var(--muted); font-size: 18px; margin-top: 4px; }
+  .actions { text-align: center; margin-top: 10px; }
+  .btn { background: var(--ink); color: var(--white); border: 0; font: inherit; font-weight: 700; padding: 12px 26px; border-radius: 10px; cursor: pointer; font-size: 20px; }
+  .btn.amber { background: var(--amber); color: var(--ink); }
+  .hidden { display: none !important; }
+  .start, .win { text-align: center; padding: 20px 10px; }
+  .start input { font-family: inherit; font-size: 32px; font-weight: 700; padding: 14px 22px; border: 3px solid var(--line); border-radius: 14px; width: 440px; max-width: 100%; text-align: center; }
+  .start input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  .classes { display: flex; gap: 12px; justify-content: center; margin: 14px 0; }
+  .classes button { font: inherit; font-size: 26px; font-weight: 800; padding: 12px 26px; border-radius: 12px; border: 3px solid var(--line); background: var(--white); cursor: pointer; }
+  .classes button.on { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .rules { display: inline-block; text-align: left; background: var(--card); border-radius: 14px; padding: 12px 24px; margin: 8px 0 12px; }
+  .win h2 { font-size: 44px; margin: 4px 0; color: var(--green-dark); }
+  .win .big { font: 800 60px "Courier New", monospace; margin: 4px 0; }
+  .win table { margin: 10px auto; border-collapse: collapse; font-size: 18px; }
+  .win td { padding: 5px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+  .win td.n { text-align: right; font-weight: 800; font-family: "Courier New", monospace; }
+  footer { color: var(--muted); font-size: 14px; text-align: center; margin-top: 24px; }
+  footer a { color: var(--muted); }
+  @media (max-width: 820px) { .lab { grid-template-columns: 1fr; } .school img { height: 40px; } }
+  .tabs { display: flex; gap: 10px; justify-content: center; margin: 4px 0 14px; }
+  .tabs button { font: 800 18px Arial, sans-serif; padding: 10px 22px; border-radius: 12px; border: 3px solid var(--line); background: var(--white); cursor: pointer; }
+  .tabs button.on { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .card { background: var(--card); border-radius: 16px; padding: 16px 20px; }
+  .card h2 { margin: 0 0 6px; }
+  .card p { margin: 6px 0; font-size: 19px; }
+  .big { font: 800 30px "Courier New", monospace; text-align: center; margin: 10px 0; }
+  .bulbs { display: flex; gap: 14px; justify-content: center; margin: 10px 0; }
+  .bulb { width: 70px; text-align: center; font-weight: 800; color: var(--muted); }
+  .bulb button { width: 64px; height: 64px; border-radius: 50%; border: 4px solid #94A3B8; background: #E2E8F0; font: 800 24px Arial; cursor: pointer; }
+  .bulb button.on { background: #FACC15; border-color: #CA8A04; }
+  .gsel { font: 800 16px Arial; padding: 8px 14px; border-radius: 10px; border: 3px dashed var(--amber); background: var(--white); cursor: pointer; }
+  .lamp { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #E2E8F0; border: 3px solid #94A3B8; vertical-align: middle; }
+  .lamp.on { background: #FACC15; border-color: #CA8A04; }
+  table.sum { border-collapse: collapse; margin: 12px auto; font: 800 28px "Courier New", monospace; }
+  table.sum td { width: 52px; height: 52px; text-align: center; }
+  table.sum { width: auto !important; }
+  table.sum td.lab { width: 90px; min-width: 90px; white-space: nowrap; vertical-align: middle; font: 700 16px Arial; color: var(--muted); text-align: right; padding-right: 10px; }
+  table.sum tr.res td:not(.lab) { border-top: 4px solid var(--ink); }
+  table.sum td.carry { font-size: 18px; color: var(--violet); height: 30px; }
+  td.pick, span.pick { cursor: pointer; background: var(--amber-soft); border-radius: 8px; }
+  td.pick:hover, span.pick:hover { outline: 3px solid var(--amber); }
+  td.ok, span.ok { background: var(--green-soft); } td.bad, span.bad { background: var(--red-soft); }
+  span.pick { display: inline-block; min-width: 56px; padding: 6px 10px; font: 800 28px "Courier New", monospace; text-align: center; margin: 0 4px; }
+  .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .stats span { background: var(--card); border-radius: 10px; padding: 6px 12px; font-weight: 800; }
+  .stats span.m { background: var(--green-soft); color: var(--green-dark); }
+</style>
+</head>
+<body>
+<div class="school">
+  <img class="acs" src="../assets/acs-header.png" alt="Assumption College Sriracha">
+  <img src="../assets/mlp-logo.png" alt="Modern Language Program">
+</div>
+<header>
+  <div><div class="kicker">ICT 9 · Logic Gates</div><h1>Adder Lab</h1><div class="credit">Designed by <b>Mr. Angelo de Villa</b></div></div>
+  <div class="score"><b id="scoreBox"></b><span id="bestBox"></span></div>
+</header>
+<main>
+  <div class="tabs"><button id="tabLearn" class="on">Part 1 · Learn</button><button id="tabPractice">Part 2 · Practice</button></div>
+  <section id="learnView">
+    <div class="dots" id="learnDots"></div>
+    <div class="card" id="learnBox"></div>
+    <div class="actions"><button id="backBtn" class="btn" style="background:#fff;color:var(--ink);border:2px solid var(--line)">← Back</button><button id="nextBtn" class="btn amber">Next →</button></div>
+  </section>
+  <section id="practiceView" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="panel"><h2 id="pTitle"></h2><div class="how" id="pHow"></div></div>
+    <div id="pBox"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="actions"><button id="checkBtn" class="btn">✅ Check</button><button id="newBtn" class="btn amber hidden">Next problem →</button></div>
+  </section>
+  <footer>Your practice progress is saved on this computer. <a href="#" id="resetLink">Reset my progress</a></footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var rnd = function (n) { return Math.floor(Math.random() * n); };
+  var GATES = ["AND", "OR", "XOR", "NAND", "NOR", "XNOR"];
+  function gate(g, a, b) { var r = g === "AND" || g === "NAND" ? a & b : g === "OR" || g === "NOR" ? a | b : a ^ b; return /^N|XNOR/.test(g) ? 1 - r : r; }
+  function bits(n, w) { var s = n.toString(2); while (s.length < w) s = "0" + s; return s.split("").map(Number); }
+  function lamp(v) { return '<span class="lamp' + (v ? " on" : "") + '"></span>'; }
+  function fb(id, ok, t, why) { $(id).className = "feedback " + (ok === null ? "" : ok ? "good" : "bad"); $(id).innerHTML = t + (why ? '<span class="why">' + why + "</span>" : ""); }
+  function sw(names, v, onFlip) {
+    return '<div class="switches">' + names.map(function (n, k) { return '<button class="sw' + (v[k] ? " on" : "") + '" data-k="' + k + '">' + n + " = " + v[k] + "</button>"; }).join("") + "</div>";
+  }
+  function wireSw(box, v, redraw) { box.querySelectorAll(".sw").forEach(function (b) { b.onclick = function () { var k = +b.getAttribute("data-k"); v[k] = 1 - v[k]; redraw(); }; }); }
+
+  // ---------- Part 1: Learn ----------
+  var STEPS = [
+    function (box) {
+      var v = [0, 1, 1];
+      function draw() {
+        var n = v[0] * 4 + v[1] * 2 + v[2];
+        box.innerHTML = "<h2>1 · Counting with only 0 and 1</h2><p>Computers count in <b>binary</b>. Each place is worth <b>double</b> the one on its right: 4, 2, 1. Click the bulbs. A lit bulb (1) adds its value.</p>" +
+          '<div class="bulbs">' + [4, 2, 1].map(function (p, k) { return '<div class="bulb"><button data-k="' + k + '" class="' + (v[k] ? "on" : "") + '">' + v[k] + "</button><div>" + p + "</div></div>"; }).join("") + "</div>" +
+          '<div class="big">' + v.join("") + " = " + [4, 2, 1].filter(function (p, k) { return v[k]; }).join(" + ") + (n ? "" : "0") + " = " + n + "</div><p style='text-align:center'>Try to make 5, then 6, then the biggest number 3 bulbs can show.</p>";
+        box.querySelectorAll(".bulb button").forEach(function (b) { b.onclick = function () { var k = +b.getAttribute("data-k"); v[k] = 1 - v[k]; draw(); }; });
+      }
+      draw();
+    },
+    function (box) {
+      var v = [1, 1];
+      function draw() {
+        var s = v[0] + v[1], r = bits(s, 2);
+        box.innerHTML = "<h2>2 · Adding two bits</h2><p>Add A and B. The answer can be 0, 1 or 2, and 2 needs <b>two</b> binary places. So adding makes two outputs: a <b>Sum</b> bit and a <b>Carry</b> bit.</p>" + sw(["A", "B"], v) +
+          '<div class="big">' + v[0] + " + " + v[1] + " = " + s + "  →  " + '<span style="color:var(--violet)">' + r[0] + "</span>" + r[1] + "</div><p style='text-align:center'>Carry <b style='color:var(--violet)'>" + r[0] + "</b>, Sum <b>" + r[1] + "</b>" +
+          (s === 2 ? ". Just like 5 + 5 = 10 in normal maths: write 0, carry 1." : "") + "</p>" +
+          '<table class="tt" style="margin:10px auto"><tr><th>A</th><th>B</th><th class="out">Carry</th><th class="out">Sum</th></tr>' +
+          [[0, 0], [0, 1], [1, 0], [1, 1]].map(function (x) { var t = bits(x[0] + x[1], 2); return "<tr" + (x[0] === v[0] && x[1] === v[1] ? ' class="now"' : "") + "><td>" + x[0] + "</td><td>" + x[1] + "</td><td>" + t[0] + "</td><td>" + t[1] + "</td></tr>"; }).join("") + "</table>";
+        wireSw(box, v, draw);
+      }
+      draw();
+    },
+    function (box) {
+      var v = [0, 0], g = { S: "AND", C: "OR" }, solved = false;
+      function draw() {
+        var okS = [[0, 0], [0, 1], [1, 0], [1, 1]].every(function (x) { return gate(g.S, x[0], x[1]) === (x[0] ^ x[1]); });
+        var okC = [[0, 0], [0, 1], [1, 0], [1, 1]].every(function (x) { return gate(g.C, x[0], x[1]) === (x[0] & x[1]); });
+        solved = solved || (okS && okC);
+        box.innerHTML = "<h2>3 · Build the half adder</h2><p>Look at the table on the last page. Which gate gives the <b>Sum</b> column? Which gate gives the <b>Carry</b> column? Click a gate to change it, then test all four rows with the switches.</p>" + sw(["A", "B"], v) +
+          '<div class="big" style="font-size:22px">Sum ' + lamp(gate(g.S, v[0], v[1])) + ' = A <button class="gsel" data-o="S">' + g.S + '</button> B &nbsp;&nbsp;&nbsp; Carry ' + lamp(gate(g.C, v[0], v[1])) + ' = A <button class="gsel" data-o="C">' + g.C + "</button> B</div>" +
+          '<div class="feedback ' + (solved ? "good" : "") + '">' + (solved ? "✔ You built a HALF ADDER: Sum = A XOR B, Carry = A AND B. Every computer adds with circuits like this!" : "Sum " + (okS ? "✔ right" : "✘ not yet") + " · Carry " + (okC ? "✔ right" : "✘ not yet")) + "</div>";
+        wireSw(box, v, draw);
+        box.querySelectorAll(".gsel").forEach(function (b) { b.onclick = function () { var o = b.getAttribute("data-o"); g[o] = GATES[(GATES.indexOf(g[o]) + 1) % GATES.length]; draw(); }; });
+      }
+      draw();
+    },
+    function (box) {
+      var v = [1, 0, 1];
+      function draw() {
+        var n = v[0] + v[1] + v[2], r = bits(n, 2);
+        box.innerHTML = "<h2>4 · The full adder: three bits</h2><p>To add bigger numbers, each column must also add the <b>carry</b> coming in from the column on its right (C<sub>in</sub>). So a <b>full adder</b> adds three bits.</p>" + sw(["A", "B", "Cin"], v) +
+          '<div class="big">' + v.join(" + ") + " = " + n + "  →  " + '<span style="color:var(--violet)">' + r[0] + "</span>" + r[1] + "</div>" +
+          "<p style='text-align:center'><b>Sum</b> = A XOR B XOR C<sub>in</sub> (1 when an <b>odd</b> number of inputs are 1)<br><b>Carry</b> = 1 when <b>two or more</b> inputs are 1</p>";
+        wireSw(box, v, draw);
+      }
+      draw();
+    },
+    function (box) {
+      var A = [0, 1, 1, 0], B = [0, 1, 1, 1];
+      function draw() {
+        var a = parseInt(A.join(""), 2), b = parseInt(B.join(""), 2), s = bits(a + b, 5), car = [0, 0, 0, 0, 0];
+        for (var i = 3, c = 0; i >= 0; i--) { c = (A[i] + B[i] + c) >> 1; car[i] = c; }   // car[i] = carry OUT of column i (into column i-1)
+        box.innerHTML = "<h2>5 · Chain them: a 4-bit adder</h2><p>Put four full adders side by side. Each column passes its carry to the left, like adding on paper. Click the top two numbers to change them.</p>" +
+          '<table class="sum"><tr><td class="lab">carries</td><td class="carry">' + (car[0] || "") + "</td>" + [1, 2, 3].map(function (i) { return '<td class="carry">' + (car[i] || "") + "</td>"; }).join("") + '<td class="carry"></td></tr>' +
+          '<tr><td class="lab">A = ' + a + "</td><td></td>" + A.map(function (x, i) { return '<td class="pick" data-n="A" data-i="' + i + '">' + x + "</td>"; }).join("") + "</tr>" +
+          '<tr><td class="lab">+ B = ' + b + "</td><td></td>" + B.map(function (x, i) { return '<td class="pick" data-n="B" data-i="' + i + '">' + x + "</td>"; }).join("") + "</tr>" +
+          '<tr class="res"><td class="lab">= ' + (a + b) + "</td>" + s.map(function (x) { return "<td>" + x + "</td>"; }).join("") + "</tr></table>" +
+          "<p style='text-align:center'>Check it: " + a + " + " + b + " = " + (a + b) + ". The extra 5th bit on the left is the last carry. Ready? Part 2 gives you random sums to master.</p>";
+        box.querySelectorAll("td.pick").forEach(function (td) { td.onclick = function () { var X = td.getAttribute("data-n") === "A" ? A : B, i = +td.getAttribute("data-i"); X[i] = 1 - X[i]; draw(); }; });
+      }
+      draw();
+    }
+  ];
+  var step = 0;
+  function showStep() {
+    $("learnDots").innerHTML = STEPS.map(function (s, i) { return '<span class="' + (i < step ? "done" : i === step ? "here" : "") + '">' + (i + 1) + "</span>"; }).join("");
+    STEPS[step]($("learnBox"));
+    $("backBtn").disabled = step === 0;
+    $("nextBtn").textContent = step === STEPS.length - 1 ? "Start Part 2 →" : "Next →";
+  }
+  $("backBtn").onclick = function () { if (step > 0) { step--; showStep(); } };
+  $("nextBtn").onclick = function () { if (step < STEPS.length - 1) { step++; showStep(); } else tab("practice"); };
+
+  // ---------- Part 2: Practice (random, repeatable) ----------
+  var KEY = "adderLab.v1", P = { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false };
+  try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) P = saved; } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
+  var NAMES = { 1: "Half adder", 2: "Full adder", 3: "2-bit sums", 4: "4-bit sums" }, NEED = 3, MASTER = 5, TOP = 4;
+  var R = null;
+  // a problem = the numbers to add (bit arrays) + the answer bits the student must fill (left to right)
+  function newProblem() {
+    if (P.level <= 2) {
+      var ins = P.level === 1 ? [rnd(2), rnd(2)] : [rnd(2), rnd(2), rnd(2)];
+      return { kind: "bits", ins: ins, ans: bits(ins.reduce(function (x, y) { return x + y; }, 0), 2) };
+    }
+    var w = P.level === 3 ? 2 : 4, a, b;
+    do { a = rnd(1 << w); b = rnd(1 << w); } while (a + b < 2);   // skip trivial 0+0, 0+1
+    return { kind: "sum", w: w, a: a, b: b, ans: bits(a + b, w + 1) };
+  }
+  function stats() {
+    $("stats").innerHTML = "<span>Level " + P.level + " of " + TOP + ": " + NAMES[P.level] + "</span><span>Streak " + P.streak + "</span><span>Best streak " + P.best + "</span><span>Solved " + P.rounds + "</span>" + (P.mastered ? "<span class='m'>🏅 MASTERED</span>" : "");
+    $("scoreBox").textContent = P.points + " pts"; $("bestBox").textContent = P.mastered ? "🏅 Mastered" : "Level " + P.level;
+  }
+  function round() {
+    R = { p: newProblem(), guess: null, marks: null, done: false };
+    R.guess = R.p.ans.map(function () { return null; });
+    $("pTitle").textContent = "Problem " + (P.rounds + 1) + " · " + NAMES[P.level];
+    $("pHow").innerHTML = R.p.kind === "bits" ? "Add the bits. Click each <b>?</b> to set the <b>Carry</b> and <b>Sum</b> outputs." : "Add the two binary numbers. Click each <b>?</b> in the answer row (use carries!).";
+    $("feedback").className = "feedback"; $("feedback").innerHTML = ""; $("checkBtn").classList.remove("hidden"); $("newBtn").classList.add("hidden");
+    draw(); stats();
+  }
+  function cell(i, tag) {
+    var g = R.guess[i], m = R.marks ? (R.marks[i] ? " ok" : " bad") : "";
+    return "<" + tag + ' class="pick' + m + '" data-i="' + i + '">' + (g === null ? "?" : g) + "</" + tag + ">";
+  }
+  function draw() {
+    var p = R.p, h;
+    if (p.kind === "bits") {
+      var names = p.ins.length === 2 ? ["A", "B"] : ["A", "B", "Cin"];
+      h = '<div class="big">' + p.ins.map(function (x, k) { return names[k] + "=" + x; }).join("  ") + "</div>" +
+        '<div class="big">Carry ' + cell(0, "span") + "  Sum " + cell(1, "span") + "</div>";
+    } else {
+      var A = bits(p.a, p.w), B = bits(p.b, p.w);
+      h = '<table class="sum"><tr><td class="lab"></td><td></td>' + A.map(function (x) { return "<td>" + x + "</td>"; }).join("") + "</tr>" +
+        '<tr><td class="lab">+</td><td></td>' + B.map(function (x) { return "<td>" + x + "</td>"; }).join("") + "</tr>" +
+        '<tr class="res"><td class="lab">=</td>' + p.ans.map(function (x, i) { return cell(i, "td"); }).join("") + "</tr></table>";
+      if (R.done) h += "<p style='text-align:center'>In decimal: " + p.a + " + " + p.b + " = " + (p.a + p.b) + " = " + p.ans.join("") + "</p>";
+    }
+    $("pBox").innerHTML = h;
+    if (!R.done) $("pBox").querySelectorAll(".pick").forEach(function (el) { el.onclick = function () { var i = +el.getAttribute("data-i"), g = R.guess[i]; R.guess[i] = g === null ? 0 : 1 - g; R.marks = null; draw(); }; });
+  }
+  $("checkBtn").onclick = function () {
+    if (R.done) return;
+    if (R.guess.some(function (g) { return g === null; })) { fb("feedback", false, "Fill every ? first!", "Click a ? to change it to 0 or 1."); return; }
+    R.marks = R.p.ans.map(function (x, i) { return R.guess[i] === x; });
+    var ok = R.marks.every(Boolean); R.done = true;
+    P.rounds++; P.streak = ok ? P.streak + 1 : 0; P.best = Math.max(P.best, P.streak); if (ok) P.points += P.level;
+    var why = ok ? "" : R.p.kind === "bits" ? "Count the 1s: 0 → 00, 1 → 01, 2 → 10, 3 → 11 (Carry, Sum)." : "Work right to left. 1 + 1 = 10: write 0, carry 1. 1 + 1 + 1 = 11: write 1, carry 1.";
+    if (ok && P.level < TOP && P.streak >= NEED) { P.level++; P.streak = 0; why = "🎉 LEVEL UP! Level " + P.level + ": " + NAMES[P.level] + "."; }
+    else if (ok && P.level === TOP && P.streak >= MASTER && !P.mastered) { P.mastered = true; why = "🏅 MASTERED! " + MASTER + " four-bit sums in a row. Keep going to raise your best streak."; }
+    else if (ok) why = P.level < TOP ? (NEED - P.streak) + " more in a row to level up." : P.mastered ? "" : (MASTER - P.streak) + " more in a row to master it.";
+    draw(); save(); stats();
+    fb("feedback", ok, ok ? "✔ Correct! +" + P.level : "✘ Not quite: the answer is " + R.p.ans.join("") + ". Your streak starts again.", why);
+    $("checkBtn").classList.add("hidden"); $("newBtn").classList.remove("hidden");
+  };
+  $("newBtn").onclick = round;
+  $("resetLink").onclick = function (e) { e.preventDefault(); if (confirm("Reset your level and streak?")) { P = { level: 1, streak: 0, best: 0, points: 0, rounds: 0, mastered: false }; save(); round(); } };
+
+  function tab(t) {
+    $("tabLearn").classList.toggle("on", t === "learn"); $("tabPractice").classList.toggle("on", t === "practice");
+    $("learnView").classList.toggle("hidden", t !== "learn"); $("practiceView").classList.toggle("hidden", t !== "practice");
+    if (t === "practice" && !R) round();
+  }
+  $("tabLearn").onclick = function () { tab("learn"); };
+  $("tabPractice").onclick = function () { tab("practice"); };
+  showStep(); stats();
+  window.__ADD = { P: function () { return P; }, R: function () { return R; }, bits: bits };
+})();
+</script>
+</body>
+</html>
